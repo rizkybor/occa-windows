@@ -95,8 +95,21 @@ jobs:
             -p:Configuration=Release -p:Platform=${{ matrix.platform }} -p:RuntimeIdentifier=${{ matrix.rid }} `
             -p:WindowsPackageType=MSIX -p:GenerateAppxPackageOnBuild=true -p:AppxBundle=Never `
             -p:AppxPackageDir="$PWD/artifacts/msix/${{ matrix.platform }}/" `
-            -p:AppxPackageSigningEnabled=true -p:PackageCertificateKeyFile="$PWD/artifacts/cert/OCCA-Dev.pfx" `
-            -p:PackageCertificatePassword=occa-dev -p:PackageCertificateThumbprint=
+            -p:AppxPackageSigningEnabled=false
+
+      - name: Sign MSIX with the test certificate
+        shell: pwsh
+        run: |
+          $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\10.*\x64\signtool.exe" | Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
+          if (-not $signtool) { throw "signtool.exe not found" }
+          $packages = Get-ChildItem artifacts/msix -Recurse -Include *.msix
+          if (-not $packages) { throw "no .msix produced" }
+          foreach ($p in $packages) {
+            & $signtool sign /fd SHA256 /f artifacts/cert/OCCA-Dev.pfx /p occa-dev $p.FullName
+            if ($LASTEXITCODE -ne 0) { throw "signing failed for $($p.Name)" }
+            & $signtool verify /pa /v $p.FullName
+            if ($LASTEXITCODE -ne 0) { throw "signature verification failed for $($p.Name)" }
+          }
 
       - name: Collect
         shell: pwsh

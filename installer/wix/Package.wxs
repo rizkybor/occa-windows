@@ -16,7 +16,7 @@
     <MajorUpgrade DowngradeErrorMessage="A newer version of OCCA is already installed." />
     <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
 
-    <Icon Id="OccaIcon" SourceFile="$(var.PublishDir)\Assets\occa.ico" />
+    <Icon Id="OccaIcon" SourceFile="$(var.ProjectDir)..\..\src\Occa.App\Assets\occa.ico" />
     <Property Id="ARPPRODUCTICON" Value="OccaIcon" />
     <Property Id="ARPURLINFOABOUT" Value="https://jcdigital.co.id" />
     <Property Id="ARPNOREPAIR" Value="yes" Secure="yes" />

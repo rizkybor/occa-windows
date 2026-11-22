@@ -30,7 +30,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Content Include="Assets/**" />
+    <Content Include="Assets/**" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="appsettings.json" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="appsettings.local.json" Condition="Exists('appsettings.local.json')" CopyToOutputDirectory="PreserveNewest" />
     <Manifest Include="$(ApplicationManifest)" />
