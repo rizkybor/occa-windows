@@ -8,6 +8,7 @@ Status: **M0 Setup** (PRD §11). The solution skeleton builds an empty WinUI 3 a
 - [Product Requirements (PRD)](docs/PRD.md)
 - [Esri offline imagery terms (spike)](docs/esri-offline-imagery.md)
 - [Testing a build on Windows](docs/testing-on-windows.md)
+- [Installing from the MSI](docs/install-msi.md)
 - [Installers](installer/README.md)
 
 ## Stack

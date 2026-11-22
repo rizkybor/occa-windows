@@ -20,6 +20,8 @@ Uninstall: *Settings › Apps › OCCA › Uninstall*.
 
 ## B. MSI (the HRIS channel for managed PCs)
 
+Full guide, including silent install for IT admins: [install-msi.md](install-msi.md).
+
 1. Download `OCCA-MSI-x64.zip`, unzip `OCCA-<version>-x64.msi`.
 2. Double-click. SmartScreen shows "Windows protected your PC" because the MSI is unsigned in beta: choose
    *More info › Run anyway*.

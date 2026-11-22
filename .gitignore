@@ -17,3 +17,6 @@ src/Occa.App/appsettings.local.json
 # OS
 .DS_Store
 Thumbs.db
+
+# Internal documents (BRD, PRD, guides) are kept out of the repository
+docs/
