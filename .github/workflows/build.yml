@@ -104,6 +104,9 @@ jobs:
           if (-not $signtool) { throw "signtool.exe not found" }
           $packages = Get-ChildItem artifacts/msix -Recurse -Include *.msix
           if (-not $packages) { throw "no .msix produced" }
+          # Trust the test certificate on the runner the same way a test PC does, so `verify` checks the full chain.
+          Import-Certificate -FilePath artifacts/cert/OCCA-Dev.cer -CertStoreLocation Cert:\LocalMachine\TrustedPeople | Out-Null
+          Import-Certificate -FilePath artifacts/cert/OCCA-Dev.cer -CertStoreLocation Cert:\LocalMachine\Root | Out-Null
           foreach ($p in $packages) {
             & $signtool sign /fd SHA256 /f artifacts/cert/OCCA-Dev.pfx /p occa-dev $p.FullName
             if ($LASTEXITCODE -ne 0) { throw "signing failed for $($p.Name)" }
