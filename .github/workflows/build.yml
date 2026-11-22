@@ -142,8 +142,7 @@ jobs:
         shell: pwsh
         run: |
           dotnet publish src/Occa.App/Occa.App.csproj -c Release -r ${{ matrix.rid }} -p:Platform=${{ matrix.platform }} `
-            -p:WindowsPackageType=None -p:SelfContained=true -p:WindowsAppSDKSelfContained=true `
-            -o artifacts/publish/${{ matrix.platform }}
+            -p:WindowsPackageType=None -o artifacts/publish/${{ matrix.platform }}
 
       - name: Build MSI (WiX)
         shell: pwsh

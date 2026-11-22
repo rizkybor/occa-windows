@@ -8,6 +8,8 @@
     <Platforms>x64;ARM64</Platforms>
     <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
     <UseWinUI>true</UseWinUI>
+    <!-- Only the app copies the Windows App SDK runtime; a library doing it too duplicates every file on publish (NETSDK1152). -->
+    <WindowsAppSDKSelfContained>false</WindowsAppSDKSelfContained>
     <Description>OCCA map renderer (Win2D/Direct2D), PDF writer (CMYK) and raster exporter.</Description>
   </PropertyGroup>
 
