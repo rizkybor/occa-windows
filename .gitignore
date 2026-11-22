@@ -1,0 +1,19 @@
+# Build output
+bin/
+obj/
+artifacts/
+*.user
+*.suo
+.vs/
+.idea/
+*.binlog
+TestResults/
+
+# Secrets and local settings
+src/Occa.App/appsettings.local.json
+*.pfx
+*.cer
+
+# OS
+.DS_Store
+Thumbs.db

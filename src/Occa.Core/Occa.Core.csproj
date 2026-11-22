@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Portable (no Windows-only APIs) so the core can be unit tested on any OS and shared with tools. -->
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Occa.Core</RootNamespace>
+    <Description>OCCA core: models, geometry, symbols, file formats, licensing rules. Ported from CakraCore (Mac/iPad).</Description>
+  </PropertyGroup>
+
+</Project>

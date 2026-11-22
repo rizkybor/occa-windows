@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap10="http://schemas.microsoft.com/appx/manifest/uap/windows10/10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap uap10 rescap">
+
+  <!-- Identity: Microsoft Partner Center assigns the final Name/Publisher for the Store; the CI build signs with a
+       self-signed certificate whose subject equals this Publisher (see installer/README.md). -->
+  <Identity
+    Name="JendelaCakraDigital.OCCA"
+    Publisher="CN=PT. Jendela Cakra Digital"
+    Version="0.1.0.0" />
+
+  <Properties>
+    <DisplayName>OCCA</DisplayName>
+    <PublisherDisplayName>PT. Jendela Cakra Digital</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+  </Properties>
+
+  <Dependencies>
+    <!-- Windows 11 24H2 (build 26100) or newer (PRD §3). -->
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.26100.0" MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="en-US" />
+  </Resources>
+
+  <Applications>
+    <Application Id="App" Executable="$targetnametoken$.exe" EntryPoint="$targetentrypoint$">
+      <uap:VisualElements
+        DisplayName="OCCA"
+        Description="Orienteering map drawing and course planning (ISOM 2017-2, ISSprOM 2019-2, ISInOM 6.7.3)."
+        BackgroundColor="transparent"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png">
+        <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" />
+        <uap:SplashScreen Image="Assets\SplashScreen.png" />
+      </uap:VisualElements>
+      <Extensions>
+        <!-- FR-W8: open .occa / .occafield / .occasym by double-click. -->
+        <uap:Extension Category="windows.fileTypeAssociation">
+          <uap:FileTypeAssociation Name="occa">
+            <uap:DisplayName>OCCA Project</uap:DisplayName>
+            <uap:SupportedFileTypes>
+              <uap:FileType>.occa</uap:FileType>
+            </uap:SupportedFileTypes>
+          </uap:FileTypeAssociation>
+        </uap:Extension>
+        <uap:Extension Category="windows.fileTypeAssociation">
+          <uap:FileTypeAssociation Name="occafield">
+            <uap:DisplayName>OCCA Field Data</uap:DisplayName>
+            <uap:SupportedFileTypes>
+              <uap:FileType>.occafield</uap:FileType>
+            </uap:SupportedFileTypes>
+          </uap:FileTypeAssociation>
+        </uap:Extension>
+        <uap:Extension Category="windows.fileTypeAssociation">
+          <uap:FileTypeAssociation Name="occasym">
+            <uap:DisplayName>OCCA Symbol Set</uap:DisplayName>
+            <uap:SupportedFileTypes>
+              <uap:FileType>.occasym</uap:FileType>
+            </uap:SupportedFileTypes>
+          </uap:FileTypeAssociation>
+        </uap:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+</Package>

@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+  <!-- One UpgradeCode per platform so x64 and ARM64 builds never upgrade each other. -->
+  <?if $(var.Platform) = arm64 ?>
+    <?define UpgradeCode = "6D0F4C1B-2A7E-4B85-9C3D-5E8F1A2B7C01" ?>
+  <?else?>
+    <?define UpgradeCode = "6D0F4C1B-2A7E-4B85-9C3D-5E8F1A2B7C00" ?>
+  <?endif?>
+
+  <Package Name="OCCA" Manufacturer="PT. Jendela Cakra Digital" Version="$(var.ProductVersion)" UpgradeCode="$(var.UpgradeCode)"
+           Language="1033" Scope="perMachine" Compressed="yes" InstallerVersion="500">
+
+    <SummaryInformation Description="OCCA for Windows: orienteering map drawing and course planning" Manufacturer="PT. Jendela Cakra Digital" />
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of OCCA is already installed." />
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+
+    <Icon Id="OccaIcon" SourceFile="$(var.PublishDir)\Assets\occa.ico" />
+    <Property Id="ARPPRODUCTICON" Value="OccaIcon" />
+    <Property Id="ARPURLINFOABOUT" Value="https://jcdigital.co.id" />
+    <Property Id="ARPNOREPAIR" Value="yes" Secure="yes" />
+
+    <!-- Minimal install UI with a folder choice; the license page is skipped (the license is the in-app key flow). -->
+    <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
+    <UIRef Id="WixUI_ErrorProgressText" />
+    <WixVariable Id="WixUILicenseRtf" Value="$(var.ProjectDir)License.rtf" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="OCCA" />
+    </StandardDirectory>
+    <StandardDirectory Id="ProgramMenuFolder" />
+
+    <Feature Id="Main" Title="OCCA" Level="1" AllowAbsent="no">
+      <ComponentGroupRef Id="AppFiles" />
+      <ComponentRef Id="Shortcuts" />
+      <ComponentRef Id="FileAssociations" />
+    </Feature>
+
+    <!-- Everything from `dotnet publish` (self-contained .NET + Windows App SDK runtime). -->
+    <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
+      <Files Include="$(var.PublishDir)\**" />
+    </ComponentGroup>
+
+    <Component Id="Shortcuts" Directory="ProgramMenuFolder" Guid="9A7E4D21-3B5C-4F60-8E1D-2C7B9A6F5E10">
+      <Shortcut Id="StartMenuShortcut" Name="OCCA" Description="Orienteering map drawing and course planning"
+                Target="[INSTALLFOLDER]OCCA.exe" WorkingDirectory="INSTALLFOLDER" Icon="OccaIcon" />
+      <RegistryValue Root="HKCU" Key="Software\Jendela Cakra Digital\OCCA" Name="StartMenuShortcut" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+
+    <!-- FR-W8: .occa / .occafield / .occasym open with OCCA. -->
+    <Component Id="FileAssociations" Directory="INSTALLFOLDER" Guid="9A7E4D21-3B5C-4F60-8E1D-2C7B9A6F5E11">
+      <RegistryValue Root="HKCR" Key="OCCA.Project" Value="OCCA Project" Type="string" KeyPath="yes" />
+      <RegistryValue Root="HKCR" Key="OCCA.Project\DefaultIcon" Value="[INSTALLFOLDER]OCCA.exe,0" Type="string" />
+      <RegistryValue Root="HKCR" Key="OCCA.Project\shell\open\command" Value="&quot;[INSTALLFOLDER]OCCA.exe&quot; &quot;%1&quot;" Type="string" />
+      <RegistryValue Root="HKCR" Key=".occa" Value="OCCA.Project" Type="string" />
+      <RegistryValue Root="HKCR" Key="OCCA.FieldData" Value="OCCA Field Data" Type="string" />
+      <RegistryValue Root="HKCR" Key="OCCA.FieldData\DefaultIcon" Value="[INSTALLFOLDER]OCCA.exe,0" Type="string" />
+      <RegistryValue Root="HKCR" Key="OCCA.FieldData\shell\open\command" Value="&quot;[INSTALLFOLDER]OCCA.exe&quot; &quot;%1&quot;" Type="string" />
+      <RegistryValue Root="HKCR" Key=".occafield" Value="OCCA.FieldData" Type="string" />
+      <RegistryValue Root="HKCR" Key="OCCA.SymbolSet" Value="OCCA Symbol Set" Type="string" />
+      <RegistryValue Root="HKCR" Key="OCCA.SymbolSet\DefaultIcon" Value="[INSTALLFOLDER]OCCA.exe,0" Type="string" />
+      <RegistryValue Root="HKCR" Key="OCCA.SymbolSet\shell\open\command" Value="&quot;[INSTALLFOLDER]OCCA.exe&quot; &quot;%1&quot;" Type="string" />
+      <RegistryValue Root="HKCR" Key=".occasym" Value="OCCA.SymbolSet" Type="string" />
+    </Component>
+
+  </Package>
+</Wix>

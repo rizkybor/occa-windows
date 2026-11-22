@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "Occa.App (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "Occa.App (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

@@ -1,0 +1,12 @@
+<Project>
+  <PropertyGroup>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>12</LangVersion>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <Company>PT. Jendela Cakra Digital</Company>
+    <Product>OCCA for Windows</Product>
+    <Copyright>© PT. Jendela Cakra Digital</Copyright>
+    <Version>0.1.0</Version>
+  </PropertyGroup>
+</Project>

@@ -1,0 +1,59 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{DFF0A192-8DA8-486C-B2B3-D7CAB505AC7C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Occa.Core", "src\Occa.Core\Occa.Core.csproj", "{A59F4D05-D0C5-4667-ACDF-0F105B897B20}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Occa.Render", "src\Occa.Render\Occa.Render.csproj", "{EE0CF14C-7392-462F-8E62-16D738DB8547}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Occa.App", "src\Occa.App\Occa.App.csproj", "{0F42C515-097E-44B4-BBBB-D8106B794B97}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{201C15F1-5C97-4AAC-9454-D8F3439E8AA4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Occa.Core.Tests", "tests\Occa.Core.Tests\Occa.Core.Tests.csproj", "{1E843655-6AF4-43B7-A1B1-2A25B7043789}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "installer", "installer", "{24872542-FAB5-4430-A6AB-492A36D9B7A8}"
+EndProject
+Project("{B7DD6F7E-DEF8-4E67-B5B7-07EF123DB6F0}") = "Occa.Installer", "installer\wix\Occa.Installer.wixproj", "{BA54E794-C05E-42DB-B4ED-491BBD679D28}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A59F4D05-D0C5-4667-ACDF-0F105B897B20}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A59F4D05-D0C5-4667-ACDF-0F105B897B20}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A59F4D05-D0C5-4667-ACDF-0F105B897B20}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A59F4D05-D0C5-4667-ACDF-0F105B897B20}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EE0CF14C-7392-462F-8E62-16D738DB8547}.Debug|Any CPU.ActiveCfg = Debug|x64
+		{EE0CF14C-7392-462F-8E62-16D738DB8547}.Debug|Any CPU.Build.0 = Debug|x64
+		{EE0CF14C-7392-462F-8E62-16D738DB8547}.Release|Any CPU.ActiveCfg = Release|x64
+		{EE0CF14C-7392-462F-8E62-16D738DB8547}.Release|Any CPU.Build.0 = Release|x64
+		{0F42C515-097E-44B4-BBBB-D8106B794B97}.Debug|Any CPU.ActiveCfg = Debug|x64
+		{0F42C515-097E-44B4-BBBB-D8106B794B97}.Debug|Any CPU.Build.0 = Debug|x64
+		{0F42C515-097E-44B4-BBBB-D8106B794B97}.Release|Any CPU.ActiveCfg = Release|x64
+		{0F42C515-097E-44B4-BBBB-D8106B794B97}.Release|Any CPU.Build.0 = Release|x64
+		{1E843655-6AF4-43B7-A1B1-2A25B7043789}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1E843655-6AF4-43B7-A1B1-2A25B7043789}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1E843655-6AF4-43B7-A1B1-2A25B7043789}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1E843655-6AF4-43B7-A1B1-2A25B7043789}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BA54E794-C05E-42DB-B4ED-491BBD679D28}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BA54E794-C05E-42DB-B4ED-491BBD679D28}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BA54E794-C05E-42DB-B4ED-491BBD679D28}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BA54E794-C05E-42DB-B4ED-491BBD679D28}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{A59F4D05-D0C5-4667-ACDF-0F105B897B20} = {DFF0A192-8DA8-486C-B2B3-D7CAB505AC7C}
+		{EE0CF14C-7392-462F-8E62-16D738DB8547} = {DFF0A192-8DA8-486C-B2B3-D7CAB505AC7C}
+		{0F42C515-097E-44B4-BBBB-D8106B794B97} = {DFF0A192-8DA8-486C-B2B3-D7CAB505AC7C}
+		{1E843655-6AF4-43B7-A1B1-2A25B7043789} = {201C15F1-5C97-4AAC-9454-D8F3439E8AA4}
+		{BA54E794-C05E-42DB-B4ED-491BBD679D28} = {24872542-FAB5-4430-A6AB-492A36D9B7A8}
+	EndGlobalSection
+EndGlobal
