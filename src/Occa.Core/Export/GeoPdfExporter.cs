@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using Occa.Core.Courses;
 using Occa.Core.Geometry;
 using Occa.Core.Project;
 using Occa.Core.Sheet;
@@ -7,7 +8,7 @@ using Occa.Core.Vector;
 
 namespace Occa.Core.Export;
 
-/// <summary>What the GeoPDF export draws (port of GeoPDFRequest; course overprint and descriptions arrive with M4).</summary>
+/// <summary>What the GeoPDF export draws (port of <c>GeoPDFRequest</c>).</summary>
 public sealed class GeoPdfRequest
 {
     public required string Title { get; init; }
@@ -17,17 +18,31 @@ public sealed class GeoPdfRequest
     public List<Stroke> Strokes { get; init; } = new();
     public List<Feature> Features { get; init; } = new();
     public NorthGrid? Grid { get; init; }
+    /// <summary>Course overprint (purple) on top of the map.</summary>
+    public CourseOverprint? Overprint { get; init; }
+    /// <summary>Control description sheet (on the map per <see cref="PrintLayout"/>, and/or on a second page).</summary>
+    public DescriptionSheet? Descriptions { get; init; }
+    /// <summary>Single-page race map layout; null = descriptions on a second page (old format).</summary>
+    public CoursePrintLayout? PrintLayout { get; init; }
+    /// <summary>Contour interval (informational; not drawn since the title box was removed).</summary>
+    public double? ContourIntervalM { get; init; }
+    /// <summary>Course object image file contents (JPG/PNG) by file name.</summary>
+    public Dictionary<string, byte[]> Images { get; init; } = new();
     /// <summary>Georeferenced basemap image (JPEG) under the map objects; null = none.</summary>
     public ExportBackground? Background { get; init; }
     /// <summary>Small credit in the bottom-left corner of the map area (Starter plan); null = none.</summary>
     public string? Watermark { get; init; }
+    /// <summary>Colour priority at which the lower purple course overprint is painted (see <c>RasterExportRequest</c>).</summary>
+    public int OverprintLowerPriority { get; init; } = ColorHierarchy.LowerPurplePriority();
 }
 
 /// <summary>
 /// Paper-sized vector PDF (A4 + margin) with Geospatial PDF georeferencing (ISO 32000-2 / Adobe extension): the page
 /// carries /VP → /Measure /GEO with lat/lon control points at the four corners of the map area and the project CRS WKT.
-/// Written by hand, byte-compatible with the Mac's GeoPDFExporter: map symbols as DeviceCMYK with the IOF Rev 4 values,
-/// sketches, north lines and basemaps in RGB, objects in the Colour Hierarchy order (NFR-4).
+/// Written by hand, byte-compatible with the Mac's GeoPDFExporter: map symbols and the course overprint as DeviceCMYK
+/// with the IOF Rev 4 values, sketches, north lines and basemaps in RGB, objects in the Colour Hierarchy order (NFR-4).
+/// The course goes into the colour order (lower purple below black, blue and brown 100 %; upper purple on top), and
+/// control descriptions are drawn on the map and/or on a second page.
 /// </summary>
 public static class GeoPdfExporter
 {
@@ -145,8 +160,31 @@ public static class GeoPdfExporter
             return s.ToString();
         }
 
+        // Course object images → XObject /Im0, /Im1, …; transparent fills → one ExtGState per opacity.
+        var imageNames = new Dictionary<string, string>();
+        var opacities = new List<double>();
+        if (req.Overprint is { } op)
+        {
+            foreach (var m in op.Marks)
+            {
+                if (m is CourseMark.Image img && !imageNames.ContainsKey(img.Name) && req.Images.ContainsKey(img.Name)) imageNames[img.Name] = $"Im{imageNames.Count}";
+                if (m is CourseMark.Fill fill && !opacities.Contains(fill.Opacity)) opacities.Add(fill.Opacity);
+            }
+        }
+        // The course in the colour order: lower purple below black, blue and brown 100 % (painted when the map's paint
+        // order passes its level), upper purple after the map, grid and sketch.
+        var levels = req.Overprint?.Levels;
+        bool lowerDone = levels?.Lower.IsEmpty ?? true;
+        void DrawLower()
+        {
+            if (lowerDone || levels is null) return;
+            lowerDone = true;
+            c.Append(OverprintContent(levels.Value.Lower, Pt, k, CmykString, imageNames, opacities)).Append("1 J 1 j [] 0 d\n");
+        }
+
         foreach (var paint in ColorHierarchy.PaintOrder(visible))
         {
+            if (paint.Priority < req.OverprintLowerPriority) DrawLower();
             var f = visible[paint.Index];
             switch (f.Kind)
             {
@@ -203,6 +241,7 @@ public static class GeoPdfExporter
                     break;
             }
         }
+        DrawLower();
         c.Append("1 J 1 j [] 0 d\n");
         if (req.Grid is { IsEnabled: true, IncludeInExport: true } g)
         {
@@ -220,6 +259,7 @@ public static class GeoPdfExporter
             foreach (var p in s.Points.Skip(1)) c.Append($"{Pt(p)} l\n");
             c.Append("S\n");
         }
+        if (levels is { Upper.IsEmpty: false } lv) c.Append(OverprintContent(lv.Upper, Pt, k, CmykString, imageNames, opacities));
         if (bg is { Attribution: { Length: > 0 } text })
         {
             double w = text.Length * 5 * 0.5;
@@ -233,6 +273,9 @@ public static class GeoPdfExporter
             c.Append($"BT /F2 6 Tf 0.2 0.2 0.2 rg {N(box.X0 + 3.5)} {N(box.Y0 + 3.2)} Td ({PdfString(mark)}) Tj ET\n");
         }
         c.Append("Q\n");
+        // Race map: control descriptions on top of the map (inside the map area).
+        if (req.PrintLayout is { } layout && req.Descriptions is { } desc) c.Append(Decorations(layout, desc, req, box));
+        // Map area border + caption in the bottom margin (if there is a margin).
         c.Append($"0.6 0.6 0.6 RG 0.3 w {N(box.X0)} {N(box.Y0)} {N(box.X1 - box.X0)} {N(box.Y1 - box.Y0)} re S\n");
         if (req.Sheet.MarginMM >= 4)
         {
@@ -268,13 +311,32 @@ public static class GeoPdfExporter
             int img = AddStream($"/Type /XObject /Subtype /Image /Width {bg.PixelWidth} /Height {bg.PixelHeight} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode", bg.ImageData);
             xobjects.Add($"/ImBg {img} 0 R");
         }
+        foreach (var (file, name) in imageNames.OrderBy(kv => kv.Value, StringComparer.Ordinal))
+        {
+            if (!req.Images.TryGetValue(file, out var data) || CourseImages.PdfImageOf(data) is not { } img) continue;
+            var dict = img.Dictionary;
+            if (img.Mask is { } m) dict += $" /SMask {AddStream(m.Dictionary, m.Stream)} 0 R";
+            xobjects.Add($"/{name} {AddStream(dict, img.Stream)} 0 R");
+        }
         int stream = AddStream("", content);
+        var extraPages = new List<int>();
+        var fills = string.Join(" ", opacities.Select((o, i) => $"/GSFill{i} << /Type /ExtGState /ca {N(o)} >>"));
         int pageObj = Add($"<< /Type /Page /Parent {pages} 0 R /MediaBox [0 0 {N(page.W)} {N(page.H)}] /Contents {stream} 0 R "
                           + $"/Resources << /Font << /F1 {font} 0 R /F2 {bold} 0 R /F3 {oblique} 0 R /F4 {boldOblique} 0 R >> /XObject << {string.Join(" ", xobjects)} >> "
-                          + $"/ExtGState << /GSBg << /Type /ExtGState /ca {N(req.Background?.Opacity ?? 1)} >> /GSArea << /Type /ExtGState /ca 0.35 >> /GSGrid << /Type /ExtGState /CA {N(req.Grid?.Opacity ?? 1)} >> >> >> "
+                          + $"/ExtGState << /GSBg << /Type /ExtGState /ca {N(req.Background?.Opacity ?? 1)} >> /GSArea << /Type /ExtGState /ca 0.35 >> /GSGrid << /Type /ExtGState /CA {N(req.Grid?.Opacity ?? 1)} >> "
+                          + $"{fills} >> >> "
                           + $"/VP [<< /Type /Viewport /BBox [{N(box.X0)} {N(box.Y0)} {N(box.X1)} {N(box.Y1)}] /Name ({PdfString(req.Title)}) /Measure {measure} 0 R >>] >>");
         objects[catalog - 1] = Encoding.Latin1.GetBytes($"<< /Type /Catalog /Pages {pages} 0 R >>");
-        objects[pages - 1] = Encoding.Latin1.GetBytes($"<< /Type /Pages /Kids [{pageObj} 0 R] /Count 1 >>");
+        bool separatePage = req.PrintLayout is { } pl ? pl.SeparateDescriptionPage || !pl.DescriptionOnMap : true;
+        if (req.Descriptions is { } sheet && separatePage)
+        {
+            var body = Encoding.Latin1.GetBytes(DescriptionContent(sheet, req.PrintLayout?.DescriptionMaxRows, req.PrintLayout?.DescriptionSymbols ?? true,
+                                                                   req.PrintLayout?.DescriptionColorValue ?? CoursePrintLayout.DescriptionColor.Black));
+            int streamObj = AddStream("", body);
+            extraPages.Add(Add($"<< /Type /Page /Parent {pages} 0 R /MediaBox [0 0 595.276 841.89] /Contents {streamObj} 0 R /Resources << /Font << /F1 {font} 0 R /F2 {bold} 0 R /F3 {oblique} 0 R /F4 {boldOblique} 0 R >> >> >>"));
+        }
+        var kids = string.Join(" ", new[] { pageObj }.Concat(extraPages).Select(p => $"{p} 0 R"));
+        objects[pages - 1] = Encoding.Latin1.GetBytes($"<< /Type /Pages /Kids [{kids}] /Count {1 + extraPages.Count} >>");
         int info = Add($"<< /Title ({PdfString(req.Title)}) /Producer ({AppInfo.Name}) /Creator ({AppInfo.Name}) >>");
 
         using var ms = new MemoryStream();
@@ -296,8 +358,326 @@ public static class GeoPdfExporter
         return ms.ToArray();
     }
 
+    // MARK: Courses
+
+    /// <summary>
+    /// Purple overprint: circles, start triangle, legs, and numbers (Helvetica, digit height = IOF number height).
+    /// <paramref name="cmyk"/>: hex → "c m y k" (DeviceCMYK); purple is the IOF 35/85/0/0. No blend mode: the caller places
+    /// the lower and upper purple parts in the colour order (<see cref="CourseOverprint.Levels"/>).
+    /// </summary>
+    internal static string OverprintContent(CourseOverprint o, Func<Point2D, string> pt, double k, Func<string, string> cmyk,
+                                            IReadOnlyDictionary<string, string>? images = null, IReadOnlyList<double>? opacities = null)
+    {
+        var c = new StringBuilder($"q 1 J 1 j [] 0 d {cmyk(o.ColorHex)} K {cmyk(o.ColorHex)} k {N(o.LineWidthM * k)} w\n");
+        (double X, double Y)? Xy(Point2D p)
+        {
+            var v = pt(p).Split(' ').Select(s => double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var d) ? d : double.NaN).ToList();
+            return v.Count == 2 && !double.IsNaN(v[0]) && !double.IsNaN(v[1]) ? (v[0], v[1]) : null;
+        }
+        var font = "F1";
+        foreach (var mark in o.Marks)
+        {
+            switch (mark)
+            {
+                case CourseMark.Font f:
+                    font = f.Bold ? (f.Italic ? "F4" : "F2") : (f.Italic ? "F3" : "F1");
+                    break;
+                case CourseMark.Color col:
+                {
+                    var v = cmyk(col.Hex ?? o.ColorHex);
+                    c.Append($"{v} K {v} k\n");
+                    break;
+                }
+                case CourseMark.Width w:
+                    c.Append($"{N((w.WidthM ?? o.LineWidthM) * k)} w\n");
+                    break;
+                case CourseMark.Level:
+                    break;
+                case CourseMark.Circle ci:
+                    c.Append(CirclePath(ci.Center, ci.RadiusM, pt)).Append("S\n");
+                    break;
+                case CourseMark.Polyline pl when pl.Points.Count > 0:
+                    c.Append($"{pt(pl.Points[0])} m\n").Append(string.Concat(pl.Points.Skip(1).Select(p => $"{pt(p)} l\n"))).Append(pl.Closed ? "h\n" : "").Append("S\n");
+                    break;
+                case CourseMark.Text t:
+                {
+                    // Helvetica digit height ≈ 0.72 em; digit width 0.556 em.
+                    double size = t.HeightM * k / 0.72;
+                    double w = t.Value.Length * 0.556 * size;
+                    if (Xy(t.Center) is not { } xy) continue;
+                    c.Append($"BT /{font} {N(size)} Tf {N(xy.X - w / 2)} {N(xy.Y - t.HeightM * k / 2)} Td ({PdfString(t.Value)}) Tj ET\n");
+                    break;
+                }
+                case CourseMark.Fill fi when fi.Points.Count > 0:
+                {
+                    int gs = opacities is null ? -1 : opacities.ToList().IndexOf(fi.Opacity);
+                    if (gs < 0) continue;
+                    c.Append($"q /GSFill{gs} gs {pt(fi.Points[0])} m\n").Append(string.Concat(fi.Points.Skip(1).Select(p => $"{pt(p)} l\n"))).Append("h f Q\n");
+                    break;
+                }
+                case CourseMark.Image im:
+                {
+                    if (images is null || !images.TryGetValue(im.Name, out var res) || Xy(im.Center) is not { } p) continue;
+                    double pw = im.WidthM * k, ph = im.HeightM * k;
+                    c.Append($"q {N(pw)} 0 0 {N(ph)} {N(p.X - pw / 2)} {N(p.Y - ph / 2)} cm /{res} Do Q\n");
+                    break;
+                }
+            }
+        }
+        return c.Append("Q\n").ToString();
+    }
+
     /// <summary>DeviceCMYK components (0–1) of a colour: the IOF spec CMYK × screen for OCCA's colours, else converted from RGB.</summary>
     public static string CmykString(string hex) => string.Join(" ", IofColors.Cmyk(hex).Take(4).Select(v => N(v)));
+
+    /// <summary>A4 page with the description table (7 mm cells) at the top left.</summary>
+    internal static string DescriptionContent(DescriptionSheet d, int? maxRows = null, bool symbols = true,
+                                              CoursePrintLayout.DescriptionColor color = CoursePrintLayout.DescriptionColor.Black)
+    {
+        double cell = 7 * PtPerMM;
+        var c = new StringBuilder();
+        double height = 0;
+        var cols = d.Columns(maxRows);
+        for (int i = 0; i < cols.Count; i++)
+        {
+            var (table, h) = DescriptionTable(cols[i], 40 + i * cell * 8, 800, cell, background: false, symbols, color);
+            c.Append(table);
+            height = Math.Max(height, h);
+        }
+        return c.Append($"BT /F1 6 Tf 40 {N(800 - height - 14)} Td ({PdfString($"{AppInfo.Name} · IOF control descriptions {(symbols ? "2024" : "(text)")}")}) Tj ET\n").ToString();
+    }
+
+    /// <summary>Description table height (pt) for cell size <paramref name="cell"/>.</summary>
+    public static double DescriptionTableHeight(DescriptionSheet d, double cell) => (d.Rows.Count + d.HeadingRowCount + (d.IsContinuation ? 0 : 1)) * cell;
+
+    /// <summary>Distance of the description block from the map area edge when in a corner (mm).</summary>
+    public const double DescriptionInsetMM = 4.0;
+
+    /// <summary>Description block size on paper (mm): columns side by side, height = tallest column.</summary>
+    public static (double W, double H) DescriptionBlockSizeMM(DescriptionSheet d, CoursePrintLayout layout)
+    {
+        double cell = ClampedCellMM(layout);
+        var cols = d.Columns(layout.DescriptionMaxRows);
+        return (cols.Count * cell * 8, cols.Count == 0 ? 0 : cols.Max(col => DescriptionTableHeight(col, cell)));
+    }
+
+    /// <summary>Top-left corner of the description block from the top-left of the map area (mm), inside the map area.</summary>
+    public static Point2D DescriptionOriginMM((double W, double H) block, CoursePrintLayout layout, SheetSpec sheet)
+    {
+        double mw = sheet.MappingWidthMM, mh = sheet.MappingHeightMM, inset = DescriptionInsetMM;
+        Point2D o;
+        if (layout.DescriptionOffsetMM is { } off) o = off;
+        else
+        {
+            var corner = layout.DescriptionCorner;
+            o = new Point2D(corner.IsLeft() ? inset : mw - inset - block.W, corner.IsTop() ? inset : mh - inset - block.H);
+        }
+        return new Point2D(Math.Min(Math.Max(o.X, 0), Math.Max(mw - block.W, 0)), Math.Min(Math.Max(o.Y, 0), Math.Max(mh - block.H, 0)));
+    }
+
+    internal static double ClampedCellMM(CoursePrintLayout layout) => Math.Clamp(layout.DescriptionCellMM, CoursePrintLayout.CellRangeMM.Min, CoursePrintLayout.CellRangeMM.Max);
+
+    /// <summary>
+    /// Description table: column A (number), B (code), then C–H as IOF pictograms (<paramref name="symbols"/>) or a text
+    /// description spanning 6 cells; 14.1/15.x/16.x as full-width rows; thick lines per <c>Row.ThickBelow</c>.
+    /// <paramref name="background"/>: white fill (for placing on top of the map).
+    /// </summary>
+    internal static (string Content, double Height) DescriptionTable(DescriptionSheet d, double x0, double yTop, double cell, bool background,
+                                                                     bool symbols = true, CoursePrintLayout.DescriptionColor color = CoursePrintLayout.DescriptionColor.Black)
+    {
+        double s = cell / (7 * PtPerMM);   // font size follows the cell size
+        double width = cell * 8;
+        double height = DescriptionTableHeight(d, cell);
+        double y = yTop;
+        var c = new StringBuilder("q\n");
+        if (background) c.Append($"1 1 1 rg {N(x0)} {N(yTop - height)} {N(width)} {N(height)} re f\n");
+        var ink = ColorHex.Rgb(color.Hex()) ?? (0, 0, 0);
+        var inkRgb = $"{N(ink.R)} {N(ink.G)} {N(ink.B)}";
+        c.Append($"{inkRgb} RG {inkRgb} rg {N(0.5 * s)} w\n");
+        void Text(string str, double x, double ty, double size, bool center = false, double maxWidth = 0, string font = "F1")
+        {
+            double w = TextWidth(str, size, font == "F2");
+            double tx = center ? x + (maxWidth - w) / 2 : x;
+            c.Append($"BT /{font} {N(size)} Tf {N(tx)} {N(ty)} Td ({PdfString(str)}) Tj ET\n");
+        }
+        void Box(double x, double by, double w, double h) => c.Append($"{N(x)} {N(by)} {N(w)} {N(h)} re S\n");
+
+        if (!d.IsContinuation && d.Title.Length > 0)
+        {
+            y -= cell;
+            Box(x0, y, width, cell);
+            Text(Fit(d.Title, width - 4, 9 * s, true), x0, y + cell * 0.32, 9 * s, true, width, "F2");
+        }
+        if (!d.IsContinuation && d.Organizer.Length > 0)
+        {
+            y -= cell;
+            Box(x0, y, width, cell);
+            Text(Fit(d.Organizer, width - 4, 7.5 * s), x0, y + cell * 0.34, 7.5 * s, true, width);
+        }
+        if (!d.IsContinuation && d.Classes.Length > 0)
+        {
+            y -= cell;
+            Box(x0, y, width, cell);
+            Text(Fit(d.Classes, width - 4, 7.5 * s), x0, y + cell * 0.34, 7.5 * s, true, width);
+        }
+        if (!d.IsContinuation)
+        {
+            y -= cell;
+            Box(x0, y, cell * 4, cell); Box(x0 + cell * 4, y, cell * 2, cell); Box(x0 + cell * 6, y, cell * 2, cell);
+            Text(Fit(d.CourseName, cell * 4 - 4, 9 * s, true), x0 + 3 * s, y + cell * 0.32, 9 * s, font: "F2");
+            Text(d.LengthText, x0 + cell * 4, y + cell * 0.32, 8 * s, true, cell * 2);
+            Text(d.ClimbText, x0 + cell * 6, y + cell * 0.32, 8 * s, true, cell * 2);
+        }
+
+        void ThickLine(DescriptionSheet.Row row, double ly)
+        {
+            if (row.ThickBelow) c.Append($"{N(1.5 * s)} w {N(x0)} {N(ly)} m {N(x0 + width)} {N(ly)} l S {N(0.5 * s)} w\n");
+        }
+        foreach (var row in d.Rows)
+        {
+            y -= cell;
+            if (row.IsFullWidth(symbols))
+            {
+                Box(x0, y, width, cell);
+                if (symbols && IofPictogram.RowShapes(row) is { } rowShapes)
+                {
+                    c.Append(IofPictogram.Pdf(rowShapes, x0, y, cell, (str, size) => TextWidth(str, size)));
+                }
+                else
+                {
+                    // Text line across the whole row: 1–2 lines.
+                    var one = Wrap(row.Text, 46); var two = Wrap(row.Text, 56);
+                    if (one.Count <= 1) Text(one.Count > 0 ? one[0] : "", x0 + 3 * s, y + cell * 0.32, 7 * s);
+                    else
+                    {
+                        Text(two[0], x0 + 3 * s, y + cell * 0.56, 5.8 * s);
+                        Text(two.Count > 2 ? two[1] + "..." : two[1], x0 + 3 * s, y + cell * 0.14, 5.8 * s);
+                    }
+                }
+                ThickLine(row, y);
+                continue;
+            }
+            Box(x0, y, cell, cell); Box(x0 + cell, y, cell, cell);
+            if (symbols)
+            {
+                // C–H: one cell per column; thick lines after C and F like the IOF sheet.
+                for (int kk = 2; kk < 8; kk++) Box(x0 + cell * kk, y, cell, cell);
+                c.Append($"{N(1.2 * s)} w {N(x0 + cell * 3)} {N(y)} m {N(x0 + cell * 3)} {N(y + cell)} l S "
+                         + $"{N(x0 + cell * 6)} {N(y)} m {N(x0 + cell * 6)} {N(y + cell)} l S {N(0.5 * s)} w\n");
+            }
+            else Box(x0 + cell * 2, y, cell * 6, cell);
+            var mid = (X: x0 + cell / 2, Y: y + cell / 2);
+            switch (row.Kind)
+            {
+                case ControlKind.Start:
+                {
+                    double r = cell * 0.32;
+                    var pts = Enumerable.Range(0, 3).Select(i =>
+                    {
+                        double a = Math.PI / 2 + i * 2 * Math.PI / 3;
+                        return $"{N(mid.X + r * Math.Cos(a))} {N(mid.Y + r * Math.Sin(a))}";
+                    }).ToList();
+                    c.Append($"{pts[0]} m {pts[1]} l {pts[2]} l h S\n");
+                    break;
+                }
+                case ControlKind.Finish:
+                    c.Append(CirclePath(Point2D.Zero, cell * 0.22, q => $"{N(mid.X + q.X)} {N(mid.Y + q.Y)}")).Append("S\n");
+                    c.Append(CirclePath(Point2D.Zero, cell * 0.34, q => $"{N(mid.X + q.X)} {N(mid.Y + q.Y)}")).Append("S\n");
+                    break;
+                default:
+                    Text(row.Number, x0, y + cell * 0.3, 10 * s, true, cell, "F2");
+                    Text(row.Code, x0 + cell, y + cell * 0.3, 10 * s, true, cell);
+                    break;
+            }
+            if (symbols)
+            {
+                var desc = row.Description;
+                var cols = new[]
+                {
+                    IofPictogram.Shapes(desc.Which), IofPictogram.Shapes(desc.Feature), IofPictogram.Shapes(desc.Appearance),
+                    IofPictogram.DimensionShapes(desc.Dimension), IofPictogram.Shapes(desc.Location), IofPictogram.Shapes(desc.Other),
+                };
+                double pad = cell * 0.1;
+                for (int kk = 0; kk < cols.Length; kk++)
+                {
+                    if (cols[kk] is not { } shapes) continue;
+                    c.Append(IofPictogram.Pdf(shapes, x0 + cell * (kk + 2) + pad, y + pad, cell - 2 * pad, (str, size) => TextWidth(str, size)));
+                }
+                // Columns that are not filled are left empty.
+                ThickLine(row, y);
+                continue;
+            }
+            // Description: 1–2 lines, smaller font when long.
+            var lines = Wrap(row.Text, 34);
+            var small = Wrap(row.Text, 42);
+            if (lines.Count <= 1) Text(lines.Count > 0 ? lines[0] : "", x0 + cell * 2 + 3 * s, y + cell * 0.32, 7 * s);
+            else if (small.Count == 1) Text(small[0], x0 + cell * 2 + 3 * s, y + cell * 0.34, 5.8 * s);
+            else
+            {
+                Text(small[0], x0 + cell * 2 + 3 * s, y + cell * 0.56, 5.8 * s);
+                Text(small.Count > 2 ? small[1] + "..." : small[1], x0 + cell * 2 + 3 * s, y + cell * 0.14, 5.8 * s);
+            }
+            ThickLine(row, y);
+        }
+        c.Append($"{N(1.5 * s)} w {N(x0)} {N(y)} {N(width)} {N(yTop - y)} re S\nQ\n");
+        return (c.ToString(), height);
+    }
+
+    /// <summary>Helvetica text width (estimate from average character width).</summary>
+    internal static double TextWidth(string s, double size, bool bold = false) => s.Length * size * (bold ? 0.58 : 0.52);
+
+    /// <summary>Truncate text to fit the width (pt), with "...".</summary>
+    internal static string Fit(string s, double width, double size, bool bold = false)
+    {
+        if (TextWidth(s, size, bold) <= width) return s;
+        var t = s;
+        while (t.Length > 0 && TextWidth(t + "...", size, bold) > width) t = t[..^1];
+        return t + "...";
+    }
+
+    /// <summary>A readable scale bar length (m): 15–30 mm on paper.</summary>
+    public static double ScaleBarMeters(int scale)
+    {
+        double[] options = { 10, 20, 25, 50, 100, 200, 250, 500, 1000, 2000, 5000 };
+        double Mm(double m) => m * 1000 / scale;
+        return options.LastOrDefault(o => Mm(o) <= 30, options[0]);
+    }
+
+    // MARK: Race map (single page)
+
+    /// <summary>
+    /// Control descriptions on top of the map (white background): in the chosen corner or a free position, split into several
+    /// side-by-side columns when rows exceed the per-column limit.
+    /// </summary>
+    internal static string Decorations(CoursePrintLayout layout, DescriptionSheet d, GeoPdfRequest req, (double X0, double Y0, double X1, double Y1) box)
+    {
+        if (!layout.DescriptionOnMap) return "";
+        double cellMM = ClampedCellMM(layout);
+        var block = DescriptionBlockSizeMM(d, layout);
+        var o = DescriptionOriginMM(block, layout, req.Sheet);
+        var c = new StringBuilder();
+        var cols = d.Columns(layout.DescriptionMaxRows);
+        for (int i = 0; i < cols.Count; i++)
+        {
+            double x = box.X0 + (o.X + i * cellMM * 8) * PtPerMM;
+            c.Append(DescriptionTable(cols[i], x, box.Y1 - o.Y * PtPerMM, cellMM * PtPerMM, background: true, layout.DescriptionSymbols, layout.DescriptionColorValue).Content);
+        }
+        return c.ToString();
+    }
+
+    internal static List<string> Wrap(string s, int maxChars)
+    {
+        var lines = new List<string>();
+        var line = "";
+        foreach (var word in s.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (line.Length == 0) line = word;
+            else if (line.Length + 1 + word.Length <= maxChars) line += " " + word;
+            else { lines.Add(line); line = word; }
+        }
+        if (line.Length > 0) lines.Add(line);
+        return lines;
+    }
 
     /// <summary>Circle as 4 cubic curves (kappa), mm coordinates relative to the symbol centre.</summary>
     public static string CirclePath(Point2D o, double r, Func<Point2D, string> at)

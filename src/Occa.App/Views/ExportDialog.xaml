@@ -38,5 +38,7 @@
             <Button Grid.Column="1" Content="Choose…" Click="ChooseFolder_Click" />
         </Grid>
         <CheckBox x:Name="GridCheck" Content="Include north lines" />
+        <CheckBox x:Name="CourseCheck" Content="Include the selected course (overprint and control descriptions)" />
+        <CheckBox x:Name="ContourCheck" Content="Include contours" />
     </StackPanel>
 </ContentDialog>

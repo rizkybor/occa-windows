@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Occa.Core.Json;
+using Occa.Core.Courses;
 using Occa.Core.Vector;
 
 namespace Occa.Core.Project;
@@ -12,8 +13,8 @@ public sealed class ProjectDocument
     public Project Project { get; set; } = new();
     public List<Stroke> Strokes { get; set; } = new();
     public List<Feature> Features { get; set; } = new();
-    /// <summary>Course planner data (M4); kept as JSON until ported. null = no courses.json.</summary>
-    public JsonObject? Courses { get; set; }
+    /// <summary>Course planner: controls + courses (courses.json; absent in older packages).</summary>
+    public CourseSet Courses { get; set; } = new();
     /// <summary>Field data (M4); kept as JSON until ported. null = no field.json.</summary>
     public JsonObject? Field { get; set; }
 
@@ -50,7 +51,7 @@ public static class ProjectPackage
         var doc = new ProjectDocument { Project = ReadProject(entries[ProjectFile]) };
         if (entries.TryGetValue(StrokesFile, out var strokes)) doc.Strokes = EnvelopePayload<List<Stroke>>(strokes, "strokes") ?? new();
         if (entries.TryGetValue(FeaturesFile, out var features)) doc.Features = EnvelopePayload<List<Feature>>(features, "features") ?? new();
-        if (entries.TryGetValue(CoursesFile, out var courses)) doc.Courses = JsonNode.Parse(courses)?["courses"] as JsonObject;
+        if (entries.TryGetValue(CoursesFile, out var courses)) doc.Courses = EnvelopePayload<CourseSet>(courses, "courses") ?? new CourseSet();
         if (entries.TryGetValue(FieldFile, out var field))
         {
             try { doc.Field = JsonNode.Parse(field)?["field"] as JsonObject; } catch (JsonException) { doc.Field = null; }
@@ -86,7 +87,8 @@ public static class ProjectPackage
             [StrokesFile] = EnvelopeJson("strokes", JsonSerializer.SerializeToNode(doc.Strokes, OccaJson.Options)),
             [FeaturesFile] = EnvelopeJson("features", JsonSerializer.SerializeToNode(doc.Features, OccaJson.Options)),
         };
-        if (doc.Courses is not null) files[CoursesFile] = EnvelopeJson("courses", doc.Courses.DeepClone());
+        // Like Mac: courses.json exists only when the set has content.
+        if (!(doc.Courses.IsEmpty && doc.Courses.EventTitle.Length == 0)) files[CoursesFile] = EnvelopeJson("courses", JsonSerializer.SerializeToNode(doc.Courses, OccaJson.Options));
         if (doc.Field is not null) files[FieldFile] = EnvelopeJson("field", doc.Field.DeepClone());
         return files;
     }
@@ -102,7 +104,7 @@ public static class ProjectPackage
     {
         Directory.CreateDirectory(folder);
         foreach (var (name, json) in Serialize(doc)) WriteAtomic(Path.Combine(folder, name), Encoding.UTF8.GetBytes(json));
-        if (doc.Courses is null) File.Delete(Path.Combine(folder, CoursesFile));
+        if (doc.Courses.IsEmpty && doc.Courses.EventTitle.Length == 0) File.Delete(Path.Combine(folder, CoursesFile));
         if (doc.Field is null) File.Delete(Path.Combine(folder, FieldFile));
     }
 

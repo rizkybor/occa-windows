@@ -24,7 +24,7 @@ public sealed class Project
     [JsonPropertyName("basemapOpacity")] public double? BasemapOpacity { get; set; }
     [JsonPropertyName("northGrid")] public NorthGrid? NorthGrid { get; set; }
     /// <summary>Contour settings (M4); kept as JSON until ported.</summary>
-    [JsonPropertyName("contourSettings")] public JsonObject? ContourSettings { get; set; }
+    [JsonPropertyName("contourSettings")] public Contour.ContourSettings? ContourSettings { get; set; }
     [JsonPropertyName("areaOpacity")] public double? AreaOpacity { get; set; }
     [JsonPropertyName("basemapImage")] public BasemapImage? BasemapImage { get; set; }
     [JsonPropertyName("areaBackup")] public AreaBackup? AreaBackup { get; set; }
@@ -38,6 +38,8 @@ public sealed class Project
     [JsonIgnore] public double BasemapOpacityValue => Math.Clamp(BasemapOpacity ?? 1, 0, 1);
     [JsonIgnore] public bool UsesLiveBasemap => LiveBasemap ?? false;
     [JsonIgnore] public NorthGrid Grid => NorthGrid ?? Occa.Core.Project.NorthGrid.Standard(Sheet.ScaleDenominator, Sheet.MapStandard);
+    /// <summary>Contour settings, defaulting to the sheet's standard (<c>Project.contours</c> on Mac).</summary>
+    [JsonIgnore] public Contour.ContourSettings Contours => ContourSettings ?? Contour.ContourSettings.Defaults(Sheet);
     [JsonIgnore] public double AreaOpacityValue => Math.Clamp(AreaOpacity ?? 1, 0.1, 1);
 
     /// <summary>Frame from the origin + ground size of the sheet; null if not yet placed.</summary>

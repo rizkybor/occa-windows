@@ -13,11 +13,12 @@ public sealed record RasterExportResult(string ImagePath, string WorldFilePath, 
 /// <summary>
 /// Renders the map to a north-up raster the size of the frame at the requested dpi (Win2D render target), writes it as
 /// PNG / TIFF / JPEG and the world file + .prj next to it (FR-6.2). Same drawing as the screen (MapRenderer), so the
-/// export matches what the mapper sees; the basemap is not included in M3.
+/// export matches what the mapper sees: contours under the objects, the course overprint in the colour order (lower
+/// purple below black, blue and brown 100 %; upper purple on top), like the PDF. The basemap is not included.
 /// </summary>
 public static class RasterExporter
 {
-    public static async Task<RasterExportResult> ExportAsync(RasterExportRequest req, string directory, MapScene scene)
+    public static async Task<RasterExportResult> ExportAsync(RasterExportRequest req, string directory, MapScene scene, IReadOnlyDictionary<string, CanvasBitmap>? images = null)
     {
         var (w, h) = req.PixelDimensions;
         if (w <= 0 || h <= 0 || (long)w * h > 400_000_000) throw new InvalidOperationException($"Not enough memory for a {w} × {h} px raster.");
@@ -27,13 +28,17 @@ public static class RasterExporter
         double dipsW = w * 96.0 / req.Dpi, dipsH = h * 96.0 / req.Dpi;
         using var target = new CanvasRenderTarget(device, (float)dipsW, (float)dipsH, req.Dpi);
         var view = new MapTransform { ViewWidth = dipsW, ViewHeight = dipsH, Center = req.Frame.Center, PixelsPerMeter = dipsW / req.Frame.WidthM };
+        var levels = req.Overprint?.Levels;
         using (var ds = target.CreateDrawingSession())
         {
             if (!req.Format.SupportsTransparency()) ds.Clear(Windows.UI.Color.FromArgb(255, 255, 255, 255));
             else ds.Clear(Windows.UI.Color.FromArgb(0, 0, 0, 0));
+            if (req.Contours is { Count: > 0 } lines && req.ContourStyle is { } style) new ContourRenderer().Draw(ds, lines, style, req.Sheet, view, minLinePx: 0);
             if (req.Grid is { IsEnabled: true, IncludeInExport: true }) MapRenderer.DrawFrame(ds, view, req.Frame, req.Grid, req.Sheet);
             // No minimum line width: print sizes are exact at the export dpi.
-            new MapRenderer().Draw(ds, scene, view, req.Sheet, minLinePx: 0);
+            Action? lower = levels is { Lower.IsEmpty: false } lv ? () => CourseOverprintRenderer.Draw(ds, lv.Lower, view, 0, 1, images) : null;
+            new MapRenderer().Draw(ds, scene, view, req.Sheet, minLinePx: 0, req.OverprintLowerPriority, lower);
+            if (levels is { Upper.IsEmpty: false } up) CourseOverprintRenderer.Draw(ds, up.Upper, view, 0, 1, images);
         }
         var imagePath = req.ImagePath(directory);
         var tmp = imagePath + ".tmp";

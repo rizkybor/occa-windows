@@ -5,7 +5,7 @@ using Windows.Storage.Pickers;
 
 namespace Occa.App.Views;
 
-/// <summary>Export choices (FR-W10): format, resolution, file name and location (default Documents\OCCA\Exports).</summary>
+/// <summary>Export choices (FR-W10): format, resolution, file name, location (default Documents\OCCA\Exports), north lines, course and contours.</summary>
 public sealed partial class ExportDialog : ContentDialog
 {
     public enum Kind { Pdf, Png, Tiff, Jpeg, Omap, Dxf }
@@ -14,7 +14,7 @@ public sealed partial class ExportDialog : ContentDialog
 
     private readonly nint _hwnd;
 
-    public ExportDialog(nint windowHandle, string baseName, bool gridAvailable)
+    public ExportDialog(nint windowHandle, string baseName, bool gridAvailable, bool courseAvailable = false, bool contoursAvailable = false)
     {
         InitializeComponent();
         _hwnd = windowHandle;
@@ -22,8 +22,20 @@ public sealed partial class ExportDialog : ContentDialog
         FolderText.Text = DefaultFolder;
         GridCheck.IsEnabled = gridAvailable;
         GridCheck.IsChecked = gridAvailable;
-        FormatButtons.SelectionChanged += (_, _) => DpiRow.Visibility = SelectedKind is Kind.Png or Kind.Tiff or Kind.Jpeg ? Visibility.Visible : Visibility.Collapsed;
-        DpiRow.Visibility = Visibility.Collapsed;
+        CourseCheck.IsEnabled = courseAvailable;
+        CourseCheck.IsChecked = courseAvailable;
+        ContourCheck.IsEnabled = contoursAvailable;
+        ContourCheck.IsChecked = contoursAvailable;
+        FormatButtons.SelectionChanged += (_, _) => UpdateRows();
+        UpdateRows();
+    }
+
+    private void UpdateRows()
+    {
+        DpiRow.Visibility = SelectedKind is Kind.Png or Kind.Tiff or Kind.Jpeg ? Visibility.Visible : Visibility.Collapsed;
+        // The course and contours are drawn into PDF and rasters; OMAP/DXF carry map objects only.
+        bool drawn = SelectedKind is Kind.Pdf or Kind.Png or Kind.Tiff or Kind.Jpeg;
+        CourseCheck.Visibility = ContourCheck.Visibility = drawn ? Visibility.Visible : Visibility.Collapsed;
     }
 
     public Kind SelectedKind => (Kind)Math.Max(FormatButtons.SelectedIndex, 0);
@@ -31,6 +43,8 @@ public sealed partial class ExportDialog : ContentDialog
     public string FileName => string.Join("_", FileNameBox.Text.Trim().Split(Path.GetInvalidFileNameChars()));
     public string Folder => FolderText.Text;
     public bool IncludeGrid => GridCheck.IsChecked == true;
+    public bool IncludeCourse => CourseCheck.IsEnabled && CourseCheck.IsChecked == true;
+    public bool IncludeContours => ContourCheck.IsEnabled && ContourCheck.IsChecked == true;
     public RasterFormat RasterFormat => SelectedKind switch { Kind.Tiff => RasterFormat.Tiff, Kind.Jpeg => RasterFormat.Jpeg, _ => RasterFormat.Png };
 
     private async void ChooseFolder_Click(object sender, RoutedEventArgs e)
