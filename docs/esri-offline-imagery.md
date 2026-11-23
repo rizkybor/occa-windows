@@ -71,6 +71,6 @@ https://ibasemaps-api.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/ti
 ```
 
 Configured in `src/Occa.App/appsettings.json` (`Esri:TileTemplate`); the key in `appsettings.local.json`
-(git-ignored) or the `OCCA_ESRI_API_KEY` environment variable, and in CI from the `ESRI_API_KEY` secret. The key needs
+(git-ignored) or the `OCCA_ESRI_API_KEY` environment variable, and in CI from the `OCCA_WINDOWS` repository secret. The key needs
 the *Basemaps* privilege (`premium:user:basemaps`) in ArcGIS Location Platform and should be restricted to that
 privilege only.

@@ -40,7 +40,7 @@ installations.
    files in the archive. `sample-park-sprint.occa` should show 8 objects, 5 controls, 2 courses.
 3. **Test basemap tile** → with an Esri API key configured, a 256×256 satellite tile of Monas, Jakarta, with the
    attribution line. Without a key the yellow bar says where to put it:
-   - for a CI build, add the repository secret `ESRI_API_KEY` (Settings › Secrets and variables › Actions), or
+   - for a CI build, add the repository secret `OCCA_WINDOWS` (the Esri API key) (Settings › Secrets and variables › Actions), or
    - on the PC, create `appsettings.local.json` next to `OCCA.exe` (see `appsettings.local.json.example`), or set the
      user environment variable `OCCA_ESRI_API_KEY` and restart OCCA. For the MSIX install the executable folder is
      read-only, so use the environment variable.
