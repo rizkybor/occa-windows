@@ -240,6 +240,8 @@ public sealed partial class CoursePanel : UserControl
 
     private void AddCourse_Click(object sender, RoutedEventArgs e)
     {
+        // Starter: up to FreeLimits.Courses courses per project.
+        if (!Occa.App.License.AppLicense.Shared.Require(Occa.Core.License.ProFeature.UnlimitedCourses, overLimit: _set.Courses.Count >= Occa.Core.License.FreeLimits.Courses)) return;
         var course = new Course($"Course {_set.Courses.Count + 1}");
         // A new course starts with the existing start and finish, if there are any.
         var start = _set.Controls.FirstOrDefault(c => c.Kind == ControlKind.Start);

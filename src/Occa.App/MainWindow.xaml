@@ -42,9 +42,11 @@
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <TextBlock Text="OCCA" FontSize="24" FontWeight="SemiBold" CharacterSpacing="-25" Foreground="{ThemeResource CpInk}" VerticalAlignment="Bottom" />
                             <TextBlock Text="Orienteering Cakra CAD Application" FontSize="13" FontWeight="Medium" Foreground="{ThemeResource CpInkMuted}" VerticalAlignment="Bottom" Margin="0,0,0,4" />
-                            <Border x:Name="PlanChip" ToolTipService.ToolTip="Starter (free) · the License screen arrives in milestone M5" CornerRadius="{StaticResource CpRadiusChip}" Background="{ThemeResource CpSandFill}" BorderBrush="{ThemeResource CpSandBorder}" BorderThickness="1" Padding="8,2" VerticalAlignment="Bottom" Margin="0,0,0,4">
-                                <TextBlock Text="Starter" FontSize="11" FontWeight="SemiBold" Foreground="{ThemeResource CpSandStrong}" />
-                            </Border>
+                            <Button x:Name="PlanChip" Click="PlanChip_Click" ToolTipService.ToolTip="License: plan, key, devices" AutomationProperties.Name="License" Background="Transparent" BorderThickness="0" Padding="0" VerticalAlignment="Bottom" Margin="0,0,0,4">
+                                <Border x:Name="PlanChipBorder" CornerRadius="{StaticResource CpRadiusChip}" Background="{ThemeResource CpSandFill}" BorderBrush="{ThemeResource CpSandBorder}" BorderThickness="1" Padding="8,2">
+                                    <TextBlock x:Name="PlanChipText" Text="Starter" FontSize="11" FontWeight="SemiBold" Foreground="{ThemeResource CpSandStrong}" />
+                                </Border>
+                            </Button>
                         </StackPanel>
                         <TextBlock x:Name="TaglineText" FontSize="12" Foreground="{ThemeResource CpInkMuted}" TextWrapping="Wrap" MaxLines="2" />
                     </StackPanel>
@@ -122,6 +124,11 @@
                     </Button>
                 </StackPanel>
 
+                <InfoBar x:Name="UpdateBar" IsOpen="False" IsClosable="True" Severity="Informational">
+                    <InfoBar.ActionButton>
+                        <Button x:Name="UpdateButton" Content="Update" Click="Update_Click" />
+                    </InfoBar.ActionButton>
+                </InfoBar>
                 <InfoBar x:Name="StatusBar" IsOpen="False" IsClosable="True" />
             </StackPanel>
         </ScrollViewer>
@@ -152,6 +159,12 @@
 
         <!-- The open project's map replaces the list (M1: read-only). -->
         <views:MapView x:Name="Map" Grid.Row="1" Grid.RowSpan="2" Visibility="Collapsed" BackRequested="Map_BackRequested" />
+
+        <!-- Plan watermark (Starter / Trial) in the bottom-left corner, like the Mac's PlanWatermark; paid plans show nothing. -->
+        <StackPanel x:Name="Watermark" Grid.Row="1" Grid.RowSpan="2" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="32,0,0,44" IsHitTestVisible="False" Visibility="Collapsed" Opacity="0.32">
+            <TextBlock x:Name="WatermarkTitle" FontSize="17" Foreground="{ThemeResource CpInk}" />
+            <TextBlock x:Name="WatermarkDetail" FontSize="12" Foreground="{ThemeResource CpInk}" />
+        </StackPanel>
 
         <!-- Splash on top of everything at launch (about 4 s), then a fade. -->
         <views:SplashView x:Name="Splash" Grid.RowSpan="3" Finished="Splash_Finished" />
