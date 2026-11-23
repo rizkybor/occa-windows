@@ -7,12 +7,15 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
+using Occa.Core;
 using Occa.Core.Basemap;
 using Occa.Core.Contour;
 using Occa.Core.Courses;
 using Occa.Core.Export;
 using Occa.Core.Geometry;
+using Occa.App.License;
 using Occa.Core.Import;
+using Occa.Core.License;
 using Occa.Core.Project;
 using Occa.Core.Render;
 using Occa.Core.Vector;
@@ -298,6 +301,8 @@ public sealed partial class MapView : UserControl
 
     private void Panels_Click(object sender, RoutedEventArgs e)
     {
+        // Contours need a license key (ProFeature.Contours); the panel stays closed on Starter.
+        if (ReferenceEquals(sender, ContoursToggle) && ContoursToggle.IsChecked == true && !AppLicense.Shared.Require(ProFeature.Contours)) { ContoursToggle.IsChecked = false; return; }
         // One side panel at a time.
         if (ReferenceEquals(sender, CoursesToggle) && CoursesToggle.IsChecked == true) ContoursToggle.IsChecked = false;
         if (ReferenceEquals(sender, ContoursToggle) && ContoursToggle.IsChecked == true) CoursesToggle.IsChecked = false;
@@ -403,7 +408,7 @@ public sealed partial class MapView : UserControl
 
     private async Task ImportCourseAsync()
     {
-        if (_doc is null) return;
+        if (_doc is null || !AppLicense.Shared.Require(ProFeature.ImportMaps)) return;
         if (_zone is not { } zone) { Show(InfoBarSeverity.Warning, "No map area", "Lock a map area (UTM zone) before importing courses."); return; }
         try
         {
@@ -433,7 +438,7 @@ public sealed partial class MapView : UserControl
 
     private async Task ExportIofAsync()
     {
-        if (_doc is null) return;
+        if (_doc is null || !AppLicense.Shared.Require(ProFeature.CourseExport)) return;
         if (_doc.Project.Frame is not { } frame || _zone is not { } zone) { Show(InfoBarSeverity.Warning, "No map area", "Lock a map area (frame and UTM zone) before exporting IOF XML."); return; }
         try
         {
@@ -813,6 +818,10 @@ public sealed partial class MapView : UserControl
         bool contoursAvailable = _contourLines is { Count: > 0 } && _doc.Project.Contours.IncludeInExport;
         var dialog = new ExportDialog(WindowHandle, _doc.Project.Name, _doc.Project.NorthGrid is { IsEnabled: true }, courseAvailable, contoursAvailable) { XamlRoot = XamlRoot, RequestedTheme = ActualTheme };
         if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+        // Starter exports PDF (with the OCCA credit); raster and vector exports need a license key.
+        var license = AppLicense.Shared;
+        if (dialog.SelectedKind is ExportDialog.Kind.Png or ExportDialog.Kind.Tiff or ExportDialog.Kind.Jpeg && !license.Require(ProFeature.RasterExport)) return;
+        if (dialog.SelectedKind is ExportDialog.Kind.Omap or ExportDialog.Kind.Dxf && !license.Require(ProFeature.VectorExport)) return;
         var baseName = dialog.FileName.Length == 0 ? "map" : dialog.FileName;
         var folder = dialog.Folder;
         var grid = dialog.IncludeGrid ? _doc.Project.NorthGrid : null;
@@ -842,6 +851,7 @@ public sealed partial class MapView : UserControl
                         Strokes = _doc.Strokes, Features = pdfFeatures, Grid = grid, Overprint = overprint, Descriptions = descriptions,
                         PrintLayout = descriptions is null ? null : set.EffectivePrintLayout, ContourIntervalM = contours is null ? null : _doc.Project.Contours.IntervalM, Images = images,
                         OverprintLowerPriority = ColorHierarchy.LowerPurplePriority(_doc.Project.Sheet.MapStandard),
+                        Watermark = license.IsPro ? null : $"Made with {AppInfo.Name} · occa.jcdigital.co.id",
                     };
                     var path = Path.Combine(folder, baseName + ".pdf");
                     await Task.Run(() => GeoPdfExporter.Export(req, path));
