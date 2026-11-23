@@ -69,7 +69,7 @@ public static class CourseOverprintRenderer
                     using var format = new CanvasTextFormat
                     {
                         FontFamily = "Arial", FontSize = size, HorizontalAlignment = CanvasHorizontalAlignment.Center, VerticalAlignment = CanvasVerticalAlignment.Center,
-                        FontWeight = bold ? Windows.UI.Text.FontWeights.Bold : Windows.UI.Text.FontWeights.Normal,
+                        FontWeight = new Windows.UI.Text.FontWeight { Weight = (ushort)(bold ? 700 : 400) },
                         FontStyle = italic ? Windows.UI.Text.FontStyle.Italic : Windows.UI.Text.FontStyle.Normal,
                     };
                     var c = V(t.Center);
