@@ -54,9 +54,9 @@ public sealed partial class LicenseDialog : ContentDialog
             LicensePlan.Organization => ("CpSkyFill", "CpSandBorder", "CpSkyStrong"),
             _ => ("CpSandFill", "CpSandBorder", "CpSandStrong"),
         };
-        PlanBadge.Background = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources[fill];
-        PlanBadge.BorderBrush = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources[border];
-        PlanText.Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources[strong];
+        PlanBadge.Background = ThemeBrushes.Get(fill);
+        PlanBadge.BorderBrush = ThemeBrushes.Get(border);
+        PlanText.Foreground = ThemeBrushes.Get(strong);
         PlanSubtitle.Text = engine.Source switch
         {
             LicenseSource.Developer => $"{AppInfo.Name} · Developer build",
@@ -97,8 +97,8 @@ public sealed partial class LicenseDialog : ContentDialog
             var tile = new Border
             {
                 Tag = plan, CornerRadius = new CornerRadius(10), Padding = new Thickness(12),
-                Background = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["CpPaper2"],
-                BorderBrush = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["CpLine"], BorderThickness = new Thickness(1),
+                Background = ThemeBrushes.Get("CpPaper2"),
+                BorderBrush = ThemeBrushes.Get("CpLine"), BorderThickness = new Thickness(1),
                 Child = new StackPanel
                 {
                     Spacing = 2,
@@ -127,7 +127,7 @@ public sealed partial class LicenseDialog : ContentDialog
                 Orientation = Orientation.Horizontal, Spacing = 10,
                 Children =
                 {
-                    new FontIcon { Glyph = f.Glyph(), FontSize = 14, Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["CpSageStrong"], Width = 24 },
+                    new FontIcon { Glyph = f.Glyph(), FontSize = 14, Foreground = ThemeBrushes.Get("CpSageStrong"), Width = 24 },
                     new TextBlock { Text = f.Title(), FontSize = 13, TextWrapping = TextWrapping.Wrap },
                 },
             });

@@ -45,7 +45,7 @@ func write(_ image: CGImage, _ name: String) {
 
 // Dialog (493×312): WixUI prints the page text from x ≈ 135, so the artwork stays in the left strip (like the stock bitmap).
 write(render(width: 493, height: 312) { ctx in
-    ctx.draw(logo, in: CGRect(x: 14, y: 312 - 30 - 112, width: 112, height: 112))
+    ctx.draw(logo, in: CGRect(x: 8, y: 312 - 30 - 112, width: 112, height: 112))
     text("OCCA", size: 22, weight: "Bold", color: ink, at: CGPoint(x: 26, y: 146), in: ctx)
     text("for Windows", size: 12, weight: "", color: muted, at: CGPoint(x: 26, y: 128), in: ctx)
     ctx.setFillColor(orange)

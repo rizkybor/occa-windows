@@ -66,3 +66,27 @@ public sealed class UserSettings
         File.WriteAllText(FilePath, JsonSerializer.Serialize(this, Options));
     }
 }
+
+/// <summary>Brushes from Themes/Tokens.xaml looked up from code; a missing key gives a transparent brush instead of a crash.</summary>
+public static class ThemeBrushes
+{
+    public static Microsoft.UI.Xaml.Media.Brush Get(string key)
+    {
+        try
+        {
+            var app = Microsoft.UI.Xaml.Application.Current;
+            if (app.Resources.TryGetValue(key, out var value) && value is Microsoft.UI.Xaml.Media.Brush brush) return brush;
+            // Code lookups do not always walk ThemeDictionaries: look in the active theme's dictionary of each merged file.
+            var theme = app.RequestedTheme == Microsoft.UI.Xaml.ApplicationTheme.Dark ? "Default" : "Light";
+            foreach (var merged in app.Resources.MergedDictionaries)
+            {
+                if (merged.ThemeDictionaries.TryGetValue(theme, out var dict) && dict is Microsoft.UI.Xaml.ResourceDictionary rd
+                    && rd.TryGetValue(key, out var themed) && themed is Microsoft.UI.Xaml.Media.Brush b) return b;
+                if (merged.ThemeDictionaries.TryGetValue("Default", out var fallback) && fallback is Microsoft.UI.Xaml.ResourceDictionary rd2
+                    && rd2.TryGetValue(key, out var themed2) && themed2 is Microsoft.UI.Xaml.Media.Brush b2) return b2;
+            }
+        }
+        catch (Exception) { /* fall through */ }
+        return new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(0, 0, 0, 0));
+    }
+}

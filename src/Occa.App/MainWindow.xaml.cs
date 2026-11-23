@@ -144,9 +144,9 @@ public sealed partial class MainWindow : Window
             LicensePlan.Organization => ("CpSkyFill", "CpSandBorder", "CpSkyStrong"),
             _ => ("CpSandFill", "CpSandBorder", "CpSandStrong"),
         };
-        PlanChipBorder.Background = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources[fill];
-        PlanChipBorder.BorderBrush = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources[border];
-        PlanChipText.Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources[strong];
+        PlanChipBorder.Background = ThemeBrushes.Get(fill);
+        PlanChipBorder.BorderBrush = ThemeBrushes.Get(border);
+        PlanChipText.Foreground = ThemeBrushes.Get(strong);
         var label = engine.WatermarkLabel;
         Watermark.Visibility = label is null ? Visibility.Collapsed : Visibility.Visible;
         WatermarkTitle.Text = $"{AppInfo.Name} {engine.Plan.Title()}";
