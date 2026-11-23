@@ -38,6 +38,14 @@ public sealed class ProjectRepository
 
     public string FolderFor(Guid id) => Path.Combine(Root, id.ToString().ToUpperInvariant() + ProjectPackage.FileExtension);
 
+    /// <summary>Writes a new project package (e.g. from an imported OCAD/OOM map).</summary>
+    public Entry Create(ProjectDocument doc)
+    {
+        var folder = FolderFor(doc.Project.Id);
+        ProjectPackage.Write(doc, folder);
+        return new Entry(doc.Project, folder);
+    }
+
     /// <summary>Imports a <c>.occa</c> archive; returns the new package folder.</summary>
     public Entry Import(byte[] archive)
     {
