@@ -92,6 +92,14 @@ Key code paths:
   marching squares + Douglas–Peucker + Chaikin), `DemGrid.cs` (`dem.json` + `dem.bin` float32 LE in the package),
   `DemReaders.cs` (ESRI ASCII grid, GeoTIFF with Deflate/LZW/predictors, AWS Terrain Tiles Terrarium, GeoJSON
   contours), `ContourExport.cs` (Shapefile, KML, KMZ via a store-only ZipWriter).
+- Editing UI (M6 = beta readiness; the deferred M2 UI): `Vector/EditHistory.cs` (undo/redo of whole-document snapshots,
+  `SymbolFeatures` builds line/area/point objects from a `MapSymbol` with the Mac's default names), `Feature.SetWidth`.
+  App: `Views/NewProjectDialog.xaml` (name, scale, A4 orientation, start lat/lon → Select Area mode), `Views/SymbolPanel.xaml`
+  (built-in set of the sheet standard, search, "Apply to selection"), `Occa.Render/SelectionRenderer.cs`, and the tools in
+  `Views/MapView.xaml(.cs)`: Navigate H, Move V, Node A, Pen P, Freehand F, Rectangle M, Ellipse L, Point T, Sketch N, Eraser E;
+  Esc/Enter/Delete, Ctrl+Z/Y/S/D/A, right-click menu, drag moves objects/points/handles, autosave 600 ms, thumbnail on
+  save. Select Area mode: frame follows the view centre and the UTM zone follows the location until "Lock area". FR-W4 window
+  bounds and FR-W8 file activation live in `MainWindow`/`App.xaml.cs` (`UserSettings` holds the bounds).
 - Licensing (M5, `Occa.Core/License`): `Ed25519.cs` (pure C# RFC 8032 verify + sign for tests), `LicenseToken.cs`
   (payload, base64url, `Verify` with the back office public key, product `occa`, platform `windows`), `LicenseKey.cs`
   (`OC7{plan}-…`, platform digits 3/5/7), `LicenseValidity.cs`, `LicenseDeviceId.cs` (salted SHA-256, UUID-shaped),

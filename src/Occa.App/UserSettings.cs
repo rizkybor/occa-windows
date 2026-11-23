@@ -32,6 +32,16 @@ public static class AppearanceModeExtensions
 public sealed class UserSettings
 {
     public AppearanceMode Appearance { get; set; } = AppearanceMode.System;
+    /// <summary>Last window position and size (FR-W4); null until the window was moved or resized once.</summary>
+    public int? WindowX { get; set; }
+    public int? WindowY { get; set; }
+    public int? WindowWidth { get; set; }
+    public int? WindowHeight { get; set; }
+    /// <summary>Last chosen scale and orientation for New project.</summary>
+    public int LastScale { get; set; } = 4000;
+    public bool LastLandscape { get; set; }
+    public double LastLat { get; set; } = -6.1754;
+    public double LastLon { get; set; } = 106.8272;
 
     public static string Folder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "OCCA");
     private static string FilePath => Path.Combine(Folder, "settings.json");

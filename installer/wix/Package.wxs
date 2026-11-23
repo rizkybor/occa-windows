@@ -25,6 +25,9 @@
     <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
     <UIRef Id="WixUI_ErrorProgressText" />
     <WixVariable Id="WixUILicenseRtf" Value="$(var.ProjectDir)License.rtf" />
+    <!-- Wizard images with the OCCA for Windows logo (build/render-installer-images.swift): 493×58 banner, 493×312 dialog. -->
+    <WixVariable Id="WixUIBannerBmp" Value="$(var.ProjectDir)Banner.bmp" />
+    <WixVariable Id="WixUIDialogBmp" Value="$(var.ProjectDir)Dialog.bmp" />
 
     <StandardDirectory Id="ProgramFiles64Folder">
       <Directory Id="INSTALLFOLDER" Name="OCCA" />

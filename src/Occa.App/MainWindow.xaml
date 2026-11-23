@@ -18,6 +18,48 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
+        <!-- Large monitors (FR-W4): the page grows with the window and the type steps up, so a 27"+ screen at 100 %
+             scaling does not look like a small window stretched out. Widths are effective pixels (DPI-aware). -->
+        <VisualStateManager.VisualStateGroups>
+            <VisualStateGroup x:Name="WidthStates">
+                <VisualState x:Name="Normal">
+                    <VisualState.StateTriggers><AdaptiveTrigger MinWindowWidth="0" /></VisualState.StateTriggers>
+                </VisualState>
+                <VisualState x:Name="Wide">
+                    <VisualState.StateTriggers><AdaptiveTrigger MinWindowWidth="1700" /></VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="Page.MaxWidth" Value="1600" />
+                        <Setter Target="Page.Padding" Value="48,32" />
+                        <Setter Target="AppNameText.FontSize" Value="28" />
+                        <Setter Target="AppSubtitleText.FontSize" Value="15" />
+                        <Setter Target="TaglineText.FontSize" Value="14" />
+                        <Setter Target="EmptyTitle.FontSize" Value="23" />
+                        <Setter Target="EmptyText.FontSize" Value="15" />
+                        <Setter Target="EmptyText.MaxWidth" Value="560" />
+                        <Setter Target="EmptyMotif.Width" Value="380" />
+                        <Setter Target="EmptyMotif.Height" Value="250" />
+                        <Setter Target="EmptyState.Margin" Value="0,120,0,0" />
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="UltraWide">
+                    <VisualState.StateTriggers><AdaptiveTrigger MinWindowWidth="2300" /></VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="Page.MaxWidth" Value="2000" />
+                        <Setter Target="Page.Padding" Value="64,40" />
+                        <Setter Target="AppNameText.FontSize" Value="32" />
+                        <Setter Target="AppSubtitleText.FontSize" Value="17" />
+                        <Setter Target="TaglineText.FontSize" Value="16" />
+                        <Setter Target="EmptyTitle.FontSize" Value="27" />
+                        <Setter Target="EmptyText.FontSize" Value="17" />
+                        <Setter Target="EmptyText.MaxWidth" Value="680" />
+                        <Setter Target="EmptyMotif.Width" Value="460" />
+                        <Setter Target="EmptyMotif.Height" Value="300" />
+                        <Setter Target="EmptyState.Margin" Value="0,160,0,0" />
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
+        </VisualStateManager.VisualStateGroups>
+
         <controls:ContourMotif Grid.RowSpan="3" Width="520" Height="360" Opacity="0.45" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-120,-160,0" />
 
         <!-- Custom title bar (FR-W1). -->
@@ -40,8 +82,8 @@
                     </Border>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <TextBlock Text="OCCA" FontSize="24" FontWeight="SemiBold" CharacterSpacing="-25" Foreground="{ThemeResource CpInk}" VerticalAlignment="Bottom" />
-                            <TextBlock Text="Orienteering Cakra CAD Application" FontSize="13" FontWeight="Medium" Foreground="{ThemeResource CpInkMuted}" VerticalAlignment="Bottom" Margin="0,0,0,4" />
+                            <TextBlock x:Name="AppNameText" Text="OCCA" FontSize="24" FontWeight="SemiBold" CharacterSpacing="-25" Foreground="{ThemeResource CpInk}" VerticalAlignment="Bottom" />
+                            <TextBlock x:Name="AppSubtitleText" Text="Orienteering Cakra CAD Application" FontSize="13" FontWeight="Medium" Foreground="{ThemeResource CpInkMuted}" VerticalAlignment="Bottom" Margin="0,0,0,4" />
                             <Button x:Name="PlanChip" Click="PlanChip_Click" ToolTipService.ToolTip="License: plan, key, devices" AutomationProperties.Name="License" Background="Transparent" BorderThickness="0" Padding="0" VerticalAlignment="Bottom" Margin="0,0,0,4">
                                 <Border x:Name="PlanChipBorder" CornerRadius="{StaticResource CpRadiusChip}" Background="{ThemeResource CpSandFill}" BorderBrush="{ThemeResource CpSandBorder}" BorderThickness="1" Padding="8,2">
                                     <TextBlock x:Name="PlanChipText" Text="Starter" FontSize="11" FontWeight="SemiBold" Foreground="{ThemeResource CpSandStrong}" />
@@ -61,12 +103,15 @@
                                 <KeyboardAccelerator Key="O" Modifiers="Control" />
                             </Button.KeyboardAccelerators>
                         </Button>
-                        <Button x:Name="NewProjectButton" Style="{StaticResource CpPrimaryButton}" IsEnabled="False"
-                                ToolTipService.ToolTip="New project (Ctrl+N) · available in milestone M2" AutomationProperties.Name="New project">
+                        <Button x:Name="NewProjectButton" Style="{StaticResource CpPrimaryButton}" Click="NewProject_Click"
+                                ToolTipService.ToolTip="New project (Ctrl+N): name, scale and start location, then select the A4 area on the map" AutomationProperties.Name="New project">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <FontIcon Glyph="&#xE710;" FontSize="14" />
                                 <TextBlock Text="New project" />
                             </StackPanel>
+                            <Button.KeyboardAccelerators>
+                                <KeyboardAccelerator Key="N" Modifiers="Control" />
+                            </Button.KeyboardAccelerators>
                         </Button>
                     </StackPanel>
                 </Grid>
@@ -111,12 +156,12 @@
 
                 <!-- Empty state -->
                 <StackPanel x:Name="EmptyState" Spacing="16" HorizontalAlignment="Center" Margin="0,80,0,0">
-                    <controls:ContourMotif Width="300" Height="200" HorizontalAlignment="Center" />
-                    <TextBlock Text="No map sheets yet" FontSize="19" FontWeight="SemiBold" Foreground="{ThemeResource CpInk}" HorizontalAlignment="Center" />
-                    <TextBlock Text="Create a project, select an A4 area on satellite imagery, then sketch with your pen or mouse. The result is georeferenced right away for OCAD and OpenOrienteering Mapper."
+                    <controls:ContourMotif x:Name="EmptyMotif" Width="300" Height="200" HorizontalAlignment="Center" />
+                    <TextBlock x:Name="EmptyTitle" Text="No map sheets yet" FontSize="19" FontWeight="SemiBold" Foreground="{ThemeResource CpInk}" HorizontalAlignment="Center" />
+                    <TextBlock x:Name="EmptyText" Text="Create a project, select an A4 area on satellite imagery, then sketch with your pen or mouse. The result is georeferenced right away for OCAD and OpenOrienteering Mapper."
                                FontSize="13" Foreground="{ThemeResource CpInkMuted}" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="460" HorizontalAlignment="Center" />
                     <TextBlock x:Name="EmptyStateDetail" FontFamily="Consolas" FontSize="11" Foreground="{ThemeResource CpInkMuted}" HorizontalAlignment="Center" />
-                    <Button Style="{StaticResource CpPrimaryButton}" IsEnabled="False" HorizontalAlignment="Center" ToolTipService.ToolTip="Available in milestone M2">
+                    <Button Style="{StaticResource CpPrimaryButton}" Click="NewProject_Click" HorizontalAlignment="Center" ToolTipService.ToolTip="New project (Ctrl+N)">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <FontIcon Glyph="&#xE710;" FontSize="14" />
                             <TextBlock Text="Create first project" />
