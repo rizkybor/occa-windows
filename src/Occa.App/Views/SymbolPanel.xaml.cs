@@ -111,7 +111,7 @@ public sealed partial class SymbolPanel : UserControl
         SymbolChosen?.Invoke(this, EventArgs.Empty);
     }
 
-    private void SizeBox_ValueChanged(NumberBox sender, NumberBoxValueChangedEventArgs args) => SymbolChosen?.Invoke(this, EventArgs.Empty);
+    private void SizeBox_ValueChanged(NumberBox sender, NumberBoxValueChangedEventArgs args) { if (!_updating && ActiveSymbol is not null) SymbolChosen?.Invoke(this, EventArgs.Empty); }
     private void Apply_Click(object sender, RoutedEventArgs e) => ApplyRequested?.Invoke(this, EventArgs.Empty);
     private void Close_Click(object sender, RoutedEventArgs e) => CloseRequested?.Invoke(this, EventArgs.Empty);
 }
