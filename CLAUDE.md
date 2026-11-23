@@ -62,6 +62,14 @@ Key code paths:
 - Drawing: `Vector/ColorHierarchy.cs` (paint order), `Vector/SymbolOrnaments.cs` (patterns, decorations),
   `Render/MapScene.cs` (renderer-independent items) → `Occa.Render/MapRenderer.cs` (Win2D), `BasemapLayer.cs`
   (Esri tiles / GeoTIFF), `MapTransform.cs`. The app's `Views/MapView.xaml` hosts the CanvasControl.
+- Editing (M2): `Vector/FeatureEdit.cs` (nodes, handles, rotation, change symbol, insert/split, parallel, reverse),
+  `FeatureFollow.cs` (path positions, follow object, freehand guide trace), `ShapeCut.cs` (boolean cut engine on
+  exact bezier outlines: area − shape, split along a path, line − box), `FeatureMerge.cs` (join lines, unite areas,
+  polygon-union fallback, fill line with area), `FeatureCorners.cs` (corner tool), `RotationSnap.cs`. Feature is a
+  mutable class: verb methods mutate in place, `Clone()` gives Swift-style value copies. Tests are ports of the
+  CakraCore suites (FeatureCutTests, AreaHolesTests, FeatureCornersTests, FeatureMergeTests…).
+- Saving: `Compression/LzfseEncoder.cs` writes uncompressed LZFSE blocks (valid for Apple's decoder; verified on
+  Mac); `ProjectArchive.Pack` builds `.occa`; `ProjectPackage.Write` writes the package JSON byte-identical to Mac.
 - Golden tests: `tests/Occa.Core.Tests/Fixtures/symbol-display.occa` + `.golden.json` were computed by CakraCore;
   `GoldenDisplayTests` must stay green. When porting more of CakraCore, extend the generator and the goldens.
 
