@@ -23,7 +23,7 @@ public sealed partial class CoursePanel : UserControl
 
     private CourseSet _set = new();
     private SheetSpec _sheet = new();
-    private bool _updating;
+    private bool _updating = true;   // until Bind(): XAML may raise change events while controls are still being created
 
     public CourseSet Set => _set;
     public Course? SelectedCourse { get; private set; }
@@ -45,6 +45,7 @@ public sealed partial class CoursePanel : UserControl
         FillPickers(sheet.IsIndoor);
         SelectedCourse = set.Courses.FirstOrDefault();
         SelectedControlId = null;
+        _updating = false;
         RefreshAll();
     }
 
@@ -75,6 +76,7 @@ public sealed partial class CoursePanel : UserControl
 
     private void FillPickers(bool indoor)
     {
+        bool wasUpdating = _updating;
         _updating = true;
         void Fill(ComboBox box, IofColumn column)
         {
@@ -92,7 +94,7 @@ public sealed partial class CoursePanel : UserControl
         DirectionBox.Items.Clear();
         foreach (var d in IofSymbols.Directions) DirectionBox.Items.Add(new ComboBoxItem { Content = d, Tag = d });
         DirectionBox.SelectedIndex = 0;
-        _updating = false;
+        _updating = wasUpdating;
     }
 
     private void RefreshAll()

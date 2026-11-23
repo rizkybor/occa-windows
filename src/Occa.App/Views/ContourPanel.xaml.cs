@@ -22,7 +22,9 @@ public sealed partial class ContourPanel : UserControl
 
     private ContourSettings _settings = new();
     private SheetSpec _sheet = new();
-    private bool _updating;
+    // True until Bind(): XAML raises ValueChanged while the controls are still being created (a slider's Minimum coerces its
+    // Value), and the handler must not touch sibling controls then.
+    private bool _updating = true;
 
     public ContourSettings Settings => _settings;
 
@@ -88,7 +90,7 @@ public sealed partial class ContourPanel : UserControl
 
     private void Settings_Changed(object sender, object e)
     {
-        if (_updating) return;
+        if (_updating || EnabledSwitch is null || IntervalBox is null) return;
         var s = _settings;
         s.IsEnabled = EnabledSwitch.IsOn;
         if (!double.IsNaN(IntervalBox.Value)) s.IntervalM = Math.Clamp(IntervalBox.Value, ContourSettings.IntervalRangeM.Min, ContourSettings.IntervalRangeM.Max);
