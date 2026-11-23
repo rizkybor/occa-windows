@@ -26,9 +26,16 @@ public sealed partial class SplashView : UserControl
         {
             Intro.Begin();
             await Task.Delay(TimeSpan.FromSeconds(DurationSeconds));
+            // From here on clicks must reach the project list: a fading overlay still hit-tests otherwise.
+            IsHitTestVisible = false;
             Outro.Begin();
+            // Safety net: if the storyboard never reports completion, finish anyway.
+            await Task.Delay(TimeSpan.FromSeconds(1.5));
+            if (!_finished) Outro_Completed(this, this);
         };
     }
+
+    private bool _finished;
 
     private void Root_SizeChanged(object sender, SizeChangedEventArgs e)
     {
@@ -59,5 +66,11 @@ public sealed partial class SplashView : UserControl
         StrokeClip.Rect = new Rect(-4, -h, w + 8, h * 3);
     }
 
-    private void Outro_Completed(object? sender, object e) => Finished?.Invoke(this, EventArgs.Empty);
+    private void Outro_Completed(object? sender, object e)
+    {
+        if (_finished) return;
+        _finished = true;
+        Visibility = Visibility.Collapsed;
+        Finished?.Invoke(this, EventArgs.Empty);
+    }
 }

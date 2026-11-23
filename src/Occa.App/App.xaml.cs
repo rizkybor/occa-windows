@@ -9,6 +9,9 @@ public partial class App : Application
 
     public static AppSettings Settings { get; } = AppSettings.Load();
 
+    /// <summary>One client for tiles and the license API (connection reuse).</summary>
+    public static HttpClient Http { get; } = new();
+
     public App()
     {
         InitializeComponent();
