@@ -19,6 +19,9 @@ public readonly record struct UtmZone(int Number, bool IsNorth)
     }
 
     /// <summary>Only EPSG UTM WGS84 (32601–32660, 32701–32760) is supported.</summary>
+    /// <summary>Detect the WGS84 UTM zone from .prj WKT (name "UTM_Zone_48S" or AUTHORITY EPSG 326xx/327xx).</summary>
+    public static UtmZone? FromWkt(string wkt) => Contour.UtmZoneWkt.Parse(wkt);
+
     public static UtmZone? FromEpsg(int epsg) => epsg switch
     {
         >= 32601 and <= 32660 => new UtmZone(epsg - 32600, true),

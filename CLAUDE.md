@@ -34,7 +34,8 @@ Windows edition of OCCA (Orienteering Cakra CAD Application), PT. Jendela Cakra 
 ```
 OCCA.Windows.sln
 ├─ src/Occa.Core         net8.0 class library: models, geometry, symbols, geodesy, courses, contours,
-│                        readers/writers (.occa LZFSE, OCAD, OMAP, GeoTIFF, GPX, IOF XML), license token/validity
+│                        readers/writers (.occa LZFSE, OCAD, OMAP, GeoTIFF, GPX, IOF XML), course planner (Course/),
+│                        contours + DEM readers (Contour/), license token/validity
 ├─ src/Occa.Render       net8.0-windows: Win2D map renderer, PDF writer (CMYK), raster exporter
 ├─ src/Occa.App          WinUI 3 app: shell, panels, tools, input, dialogs, licensing UI, updater
 ├─ tests/Occa.Core.Tests xUnit: ported CakraCore tests + golden files (Fixtures/)
@@ -77,6 +78,24 @@ Key code paths:
   OOM sets in `tests/.../Fixtures/oom` are GPL test inputs only, never shipped.
 - Golden tests: `tests/Occa.Core.Tests/Fixtures/symbol-display.occa` + `.golden.json` were computed by CakraCore;
   `GoldenDisplayTests` must stay green. When porting more of CakraCore, extend the generator and the goldens.
+- Courses (M4, namespace `Occa.Core.Courses`, folder `Occa.Core/Course`): `Course.cs` (ControlPoint, Course, CourseSet
+  with codes/loads/warnings/renumber, SpecialInstruction "15.x", FinishRoute "16.x", LegGap, CoursePrintLayout,
+  CourseAppearance), `ControlDescription.cs` (IOF 2024 catalog `IofSymbols`, 2018 → 2024 migration run by
+  `IJsonOnDeserializing/Deserialized` when `descriptionFormat` is missing), `CourseItem.cs` (text/shapes/images + IOF
+  course symbols 702–715 drawn from the built-in symbol sets), `CourseOverprint.cs` (CourseStyle, CourseMark records,
+  `Make`, `Levels` = lower/upper purple), `DescriptionSheet.cs`, `IofPictogram.cs` (pictograms + PDF operators),
+  `IofXmlExporter.cs`, `CourseImages.cs` (+ a minimal PNG decoder). `ProjectDocument.Courses` is a typed `CourseSet`;
+  `courses.json` is written only when the set has content (like Mac). Import: `Import/OcadCourseReader.cs`,
+  `OmapReaderCourses.cs`, `CourseFileImport.cs`. The PDF exporter draws the overprint in the colour order and the
+  description table (`GeoPdfExporter.OverprintContent/DescriptionTable`).
+- Contours (M4, `Occa.Core/Contour`): `ContourGenerator.cs` (ContourSettings in `Project.contourSettings`, ContourLine,
+  marching squares + Douglas–Peucker + Chaikin), `DemGrid.cs` (`dem.json` + `dem.bin` float32 LE in the package),
+  `DemReaders.cs` (ESRI ASCII grid, GeoTIFF with Deflate/LZW/predictors, AWS Terrain Tiles Terrarium, GeoJSON
+  contours), `ContourExport.cs` (Shapefile, KML, KMZ via a store-only ZipWriter).
+- Rendering of M4: `Occa.Render/CourseOverprintRenderer.cs` (pixel space; on screen with 90 % alpha, exports place
+  lower/upper purple in the colour order through `MapRenderer.Draw(..., belowPriority, drawBelow)`),
+  `ContourRenderer.cs`; `MapScene.Item.Priority` carries the colour priority. App: `Views/CoursePanel.xaml`,
+  `Views/ContourPanel.xaml`, placement/drag of controls and autosave in `Views/MapView.xaml.cs`.
 
 ## Conventions
 

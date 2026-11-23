@@ -69,6 +69,31 @@ installations.
 4. **Open file** with an `.ocd` (OCAD 10–2018) or `.omap`/`.xmap`: a new project appears, centred on the content.
    OCAD files ask for the UTM zone first.
 
+## C4. What to check in milestone M4 (course planner and contours)
+
+1. Open a project with a locked map area and click **Courses** (Ctrl+K). The side panel shows the event, courses,
+   controls and the IOF 2024 description editor. **+** adds a course; the placement toggles **Start / Control /
+   Finish** make the next map click place that control (controls get the next free code, 66/68/… are skipped).
+   Dragging a control moves it; clicking an existing control adds it to the selected course. The purple overprint
+   (circles, start triangle, legs with the 0.3 mm gap, numbers placed away from the legs) updates immediately and the
+   package is saved after about half a second (`courses.json` in the project folder, same JSON as Mac/iPad).
+2. Pick symbols in columns C–H: the text line under the editor reads like "Northern boulder, 1.5 m, east side".
+   **Check** lists the same warnings as the Mac (codes used twice, controls closer than 30 m, missing finish…).
+3. **Export** → PDF with "Include the selected course": the map page carries the control descriptions in the chosen
+   corner (symbols or text, 5–7 mm cells) and, when "separate description page" is on, a second A4 page. Open the PDF
+   in Acrobat: the purple is DeviceCMYK 35/85/0/0 and the course sits in the colour order (black lines over the lower
+   purple). PNG/TIFF/JPEG exports draw the same overprint. **IOF XML…** writes a `CourseData` file MeOS/OE can read.
+4. **Import course…** accepts a Mac `.occa` (controls with descriptions, positions converted between UTM zones), an
+   OCAD course-setting `.ocd` and an OOM `.omap/.xmap` (701/702/706 symbols become controls).
+5. Click **Contours** (Ctrl+H). **Download terrain** fetches AWS Terrain Tiles for the map area (needs internet) and
+   stores `dem.json` + `dem.bin` in the package; **Open DEM…** reads a GeoTIFF/ASCII grid, or a GeoJSON with contour
+   lines. Brown contours (ISOM 101/102/103 widths, index every 5th) appear under the objects; interval, base
+   elevation, smoothing and form lines regenerate them; the interval warning shows when it is too fine for the DEM.
+6. **Export contours…** writes Shapefile (UTM) / KML / KMZ (WGS84; open in Google Earth). **To vector objects** turns
+   the lines into editable ISOM line objects and hides the live contours. PDF and raster exports include the contours
+   when "Include in PDF and raster exports" is on.
+7. Open the same project on the Mac afterwards: courses, descriptions, print layout and the DEM must read identically.
+
 ## D. Logs and failures
 
 - The CI run's *Core tests* job uploads `test-results/core.trx` (open in Visual Studio or any TRX viewer).
