@@ -3,8 +3,10 @@ using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Imaging;
+using Occa.App.License;
 using Occa.Core;
 using Occa.Core.Basemap;
+using Occa.Core.License;
 using Occa.Core.Project;
 using Windows.Storage.Pickers;
 using Windows.Storage.Streams;
@@ -39,6 +41,69 @@ public sealed partial class MainWindow : Window
         CreditText.Text = $"{AppInfo.Name} {AppInfo.Year} · {AppInfo.Country} · Supported by";
         ApplyAppearance();
         LoadProjects();
+        // M5: licensing (HRIS keys, offline token) and the update check.
+        _license.Changed += (_, _) => DispatcherQueue.TryEnqueue(RefreshPlan);
+        RefreshPlan();
+        Activated += (_, e) =>
+        {
+            if (e.WindowActivationState == WindowActivationState.Deactivated) return;
+            _license.Attach(Content.XamlRoot, RootGrid.RequestedTheme);
+            _license.Engine.Recheck();
+        };
+        _ = StartLicenseAsync();
+    }
+
+    private readonly AppLicense _license = AppLicense.Shared;
+    private UpdateChecker.Result? _update;
+
+    private async Task StartLicenseAsync()
+    {
+        _license.Attach(Content.XamlRoot, RootGrid.RequestedTheme);
+        await _license.StartAsync(DispatcherQueue);
+        var checker = new UpdateChecker(_license.Api, WindowsDevice.AppVersion);
+        _update = await checker.CheckAsync(_license.Engine.Payload?.Key);
+        if (_update is { } u)
+        {
+            UpdateBar.Severity = u.Required ? InfoBarSeverity.Warning : InfoBarSeverity.Informational;
+            UpdateBar.Title = u.Required ? "Update required" : "Update available";
+            UpdateBar.Message = u.Summary + (u.Notes.Length > 0 ? "\n" + u.Notes : "");
+            UpdateButton.Content = u.IsPackaged ? "Open Microsoft Store" : "Download";
+            UpdateButton.IsEnabled = u.Target is not null;
+            UpdateBar.IsOpen = true;
+        }
+    }
+
+    /// <summary>Plan chip (header) and the Starter / Trial watermark follow the license.</summary>
+    private void RefreshPlan()
+    {
+        var engine = _license.Engine;
+        PlanChipText.Text = engine.Plan.Title() + (engine.Source == LicenseSource.Developer ? " · dev" : "");
+        var (fill, border, strong) = engine.Plan switch
+        {
+            LicensePlan.Trial => ("CpButterFill", "CpSandBorder", "CpButterStrong"),
+            LicensePlan.Professional => ("CpSageFill", "CpSageBorder", "CpSageStrong"),
+            LicensePlan.Lifetime => ("CpRoseFill", "CpSandBorder", "CpRoseStrong"),
+            LicensePlan.Organization => ("CpSkyFill", "CpSandBorder", "CpSkyStrong"),
+            _ => ("CpSandFill", "CpSandBorder", "CpSandStrong"),
+        };
+        PlanChipBorder.Background = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources[fill];
+        PlanChipBorder.BorderBrush = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources[border];
+        PlanChipText.Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources[strong];
+        var label = engine.WatermarkLabel;
+        Watermark.Visibility = label is null ? Visibility.Collapsed : Visibility.Visible;
+        WatermarkTitle.Text = $"{AppInfo.Name} {engine.Plan.Title()}";
+        WatermarkDetail.Text = engine.WatermarkDetail;
+    }
+
+    private async void PlanChip_Click(object sender, RoutedEventArgs e)
+    {
+        _license.Attach(Content.XamlRoot, RootGrid.RequestedTheme);
+        await _license.ShowAsync(null);
+    }
+
+    private async void Update_Click(object sender, RoutedEventArgs e)
+    {
+        if (_update?.Target is { } target) await Windows.System.Launcher.LaunchUriAsync(target);
     }
 
     // MARK: Appearance
@@ -60,6 +125,7 @@ public sealed partial class MainWindow : Window
     {
         _settings.Appearance = _settings.Appearance.Next();
         ApplyAppearance();
+        _license.Attach(Content.XamlRoot, RootGrid.RequestedTheme);
         try { _settings.Save(); } catch (Exception ex) { ShowStatus(InfoBarSeverity.Warning, "Settings not saved", ex.Message); }
     }
 
@@ -130,8 +196,11 @@ public sealed partial class MainWindow : Window
             var bytes = await File.ReadAllBytesAsync(file.Path);
             var extension = Path.GetExtension(file.Path).TrimStart('.').ToLowerInvariant();
             ProjectRepository.Entry entry;
+            // Starter: up to FreeLimits.Projects projects; existing ones are never locked (FR-W12 limits as on Mac).
+            if (!_license.Require(ProFeature.UnlimitedProjects, overLimit: _projects.Count >= FreeLimits.Projects)) return;
             if (Occa.Core.Import.MapFileImport.FileExtensions.Contains(extension))
             {
+                if (!_license.Require(ProFeature.ImportMaps)) return;
                 // OCAD / OOM map → a new project (M3). OCAD files do not store their UTM zone: ask for it.
                 var content = await Task.Run(() => Occa.Core.Import.MapFileImport.Read(bytes, extension));
                 var zone = content.KnownZone ?? await AskZoneAsync();

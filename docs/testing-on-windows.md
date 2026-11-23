@@ -94,6 +94,28 @@ installations.
    when "Include in PDF and raster exports" is on.
 7. Open the same project on the Mac afterwards: courses, descriptions, print layout and the DEM must read identically.
 
+## C5. What to check in milestone M5 (licensing and updates)
+
+Needs the HRIS back office with the Windows platform (see `licensing-windows.md`); until then the server answers
+`wrong_platform`/`invalid_request` and only the offline parts can be checked.
+
+1. The header chip reads **Starter**; the bottom-left corner shows "OCCA Starter · Activate a license key…". Clicking the
+   chip opens the License screen: plan card, key field, plans, features, device id (a UUID derived from the machine GUID;
+   the same after reinstalling).
+2. Paste a Mac key (`OC32-…`): the hint and the message say it is a Mac key. Paste a Windows key (`OC72-…`): **Activate**
+   → the chip turns Professional (or the key's plan), the watermark disappears, "n of m devices in use" shows. The token
+   is stored encrypted in `%LOCALAPPDATA%\OCCA\license\*.bin` (DPAPI, current user).
+3. Restart OCCA offline: the plan stays (offline verification). **Check now** online refreshes; switching the key off in
+   HRIS and pressing Check now falls back to Starter with the server's message.
+4. **Release this PC** (confirm) → Starter; the seat is free in HRIS. Reinstall or delete the license folder, start OCCA
+   online: `restore` brings the license back without a key (only while the device is still activated).
+5. Starter limits: a 4th project import, a 5th course, Contours, Import course, IOF XML, PNG/TIFF/JPEG and OMAP/DXF
+   exports open the License screen; PDF export still works and carries the "Made with OCCA" credit.
+6. Set the PC clock back a day: the plan drops to Starter with the clock message until the time is right and the app has
+   been online. A Trial key past its end shows the "trial ended" message.
+7. Updates: with a newer published Windows release in HRIS Versions, the project list shows "Update available" with the
+   release notes; **Download** opens the HRIS installer link (MSI install) or the Store page (MSIX install).
+
 ## D. Logs and failures
 
 - The CI run's *Core tests* job uploads `test-results/core.trx` (open in Visual Studio or any TRX viewer).

@@ -92,6 +92,17 @@ Key code paths:
   marching squares + Douglas–Peucker + Chaikin), `DemGrid.cs` (`dem.json` + `dem.bin` float32 LE in the package),
   `DemReaders.cs` (ESRI ASCII grid, GeoTIFF with Deflate/LZW/predictors, AWS Terrain Tiles Terrarium, GeoJSON
   contours), `ContourExport.cs` (Shapefile, KML, KMZ via a store-only ZipWriter).
+- Licensing (M5, `Occa.Core/License`): `Ed25519.cs` (pure C# RFC 8032 verify + sign for tests), `LicenseToken.cs`
+  (payload, base64url, `Verify` with the back office public key, product `occa`, platform `windows`), `LicenseKey.cs`
+  (`OC7{plan}-…`, platform digits 3/5/7), `LicenseValidity.cs`, `LicenseDeviceId.cs` (salted SHA-256, UUID-shaped),
+  `LicenseApi.cs` (HRIS `/api/licenses/occa/*`, requests send `platform: "Windows"`, `releases/latest` for updates),
+  `LicenseEngine.cs` (state machine with injected `ILicenseStore`/`ILicenseApi`/clock; tests use fakes), `ProFeature.cs`
+  + `FreeLimits` (Starter: 3 projects, 1:4000/1:10000, 4 courses). App: `License/DpapiLicenseStore.cs` (DPAPI files in
+  `%LOCALAPPDATA%\OCCA\license`), `WindowsDevice.cs` (MachineGuid → device id), `AppLicense.cs` (singleton, re-check
+  timer, `Require(feature)` opens `Views/LicenseDialog.xaml`), `UpdateChecker.cs`; gates in MainWindow (project limit,
+  map import), MapView (contours, course import, IOF XML, raster/vector export, PDF credit on Starter), CoursePanel
+  (course limit). Debug builds are Lifetime unless started with `--license key`; `--license-api <url>` / `OCCA_LICENSE_API`
+  pick the server. HRIS still needs the Windows platform (digit 7, `Windows` request value): see `docs/licensing-windows.md`.
 - Rendering of M4: `Occa.Render/CourseOverprintRenderer.cs` (pixel space; on screen with 90 % alpha, exports place
   lower/upper purple in the colour order through `MapRenderer.Draw(..., belowPriority, drawBelow)`),
   `ContourRenderer.cs`; `MapScene.Item.Priority` carries the colour priority. App: `Views/CoursePanel.xaml`,
