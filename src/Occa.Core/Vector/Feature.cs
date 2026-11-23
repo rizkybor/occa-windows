@@ -313,6 +313,14 @@ public sealed class Feature
 
     // MARK: Symbol size
 
+    /// <summary>Line/area width (paper mm); a double line keeps its casing ratio, dashes follow through <c>StandardWidthMM</c> (Mac's setWidth).</summary>
+    public void SetWidth(double widthMM)
+    {
+        double w = Math.Max(0.01, widthMM);
+        if (InnerWidthMM is double inner && WidthMM > 0) InnerWidthMM = Math.Round(inner * w / WidthMM * 1000) / 1000;
+        WidthMM = Math.Round(w * 1000) / 1000;
+    }
+
     /// <summary>This object with its symbol size × k (line width, inner width, dashes, point shape); no symbol = unchanged.</summary>
     public Feature WithSymbolSize(double k)
     {

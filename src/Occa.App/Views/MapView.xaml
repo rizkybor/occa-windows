@@ -9,7 +9,24 @@
 
     <UserControl.KeyboardAccelerators>
         <KeyboardAccelerator Key="Number0" Modifiers="Control" Invoked="FitAccelerator_Invoked" />
+        <KeyboardAccelerator Key="Z" Modifiers="Control" Invoked="Undo_Invoked" />
+        <KeyboardAccelerator Key="Y" Modifiers="Control" Invoked="Redo_Invoked" />
+        <KeyboardAccelerator Key="Z" Modifiers="Control,Shift" Invoked="Redo_Invoked" />
+        <KeyboardAccelerator Key="S" Modifiers="Control" Invoked="Save_Invoked" />
+        <KeyboardAccelerator Key="D" Modifiers="Control" Invoked="Duplicate_Invoked" />
+        <KeyboardAccelerator Key="A" Modifiers="Control" Invoked="SelectAll_Invoked" />
     </UserControl.KeyboardAccelerators>
+
+    <UserControl.Resources>
+        <Style x:Key="ToolButton" TargetType="ToggleButton">
+            <Setter Property="Width" Value="40" />
+            <Setter Property="Height" Value="40" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+    </UserControl.Resources>
 
     <Grid>
         <Grid.RowDefinitions>
@@ -17,7 +34,7 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!-- Top bar: back, project name, basemap controls, course/contour panels, export (the Mac top bar's map controls). -->
+        <!-- Top bar: back, project name, basemap controls, panels, export (the Mac top bar). -->
         <Grid Padding="12,8" ColumnSpacing="12" Background="{ThemeResource CpPaper2}" BorderBrush="{ThemeResource CpLine}" BorderThickness="0,0,0,1">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
@@ -35,6 +52,14 @@
                 <TextBlock x:Name="SummaryText" FontFamily="Consolas" FontSize="11" Foreground="{ThemeResource CpInkMuted}" />
             </StackPanel>
             <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                    <Button x:Name="UndoButton" Style="{StaticResource CpSecondaryButton}" Click="Undo_Click" ToolTipService.ToolTip="Undo (Ctrl+Z)" AutomationProperties.Name="Undo" IsEnabled="False">
+                        <FontIcon Glyph="&#xE7A7;" FontSize="14" />
+                    </Button>
+                    <Button x:Name="RedoButton" Style="{StaticResource CpSecondaryButton}" Click="Redo_Click" ToolTipService.ToolTip="Redo (Ctrl+Y)" AutomationProperties.Name="Redo" IsEnabled="False">
+                        <FontIcon Glyph="&#xE7A6;" FontSize="14" />
+                    </Button>
+                </StackPanel>
                 <ToggleButton x:Name="BasemapToggle" IsChecked="True" Click="Basemap_Click" ToolTipService.ToolTip="Satellite basemap (Esri World Imagery)" AutomationProperties.Name="Satellite basemap" MinHeight="36">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <FontIcon Glyph="&#xE774;" FontSize="14" />
@@ -43,8 +68,17 @@
                 </ToggleButton>
                 <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                     <TextBlock Text="Opacity" FontSize="12" Foreground="{ThemeResource CpInkMuted}" VerticalAlignment="Center" />
-                    <Slider x:Name="OpacitySlider" Minimum="0" Maximum="100" Width="120" ValueChanged="Opacity_ValueChanged" AutomationProperties.Name="Basemap opacity" />
+                    <Slider x:Name="OpacitySlider" Minimum="0" Maximum="100" Width="100" ValueChanged="Opacity_ValueChanged" AutomationProperties.Name="Basemap opacity" />
                 </StackPanel>
+                <ToggleButton x:Name="SymbolsToggle" Click="Panels_Click" ToolTipService.ToolTip="Symbols: the ISOM / ISSprOM set for drawing (Ctrl+J)" AutomationProperties.Name="Symbols" MinHeight="36">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon Glyph="&#xE80A;" FontSize="14" />
+                        <TextBlock Text="Symbols" />
+                    </StackPanel>
+                    <ToggleButton.KeyboardAccelerators>
+                        <KeyboardAccelerator Key="J" Modifiers="Control" />
+                    </ToggleButton.KeyboardAccelerators>
+                </ToggleButton>
                 <ToggleButton x:Name="CoursesToggle" Click="Panels_Click" ToolTipService.ToolTip="Course planner: controls, courses, descriptions (Ctrl+K)" AutomationProperties.Name="Courses" MinHeight="36">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <FontIcon Glyph="&#xE7C1;" FontSize="14" />
@@ -80,24 +114,71 @@
 
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <Grid>
+
+            <!-- Tool rail (FR-W2): the Mac's tool keys V, A, H, P, F, M, L, T, N, E; Esc cancels, Delete removes. -->
+            <StackPanel x:Name="ToolRail" Padding="6,8" Spacing="2" Background="{ThemeResource CpPaper2}" BorderBrush="{ThemeResource CpLine}" BorderThickness="0,0,1,0">
+                <ToggleButton x:Name="ToolNavigate" Style="{StaticResource ToolButton}" Tag="Navigate" Click="Tool_Click" ToolTipService.ToolTip="Navigate (H): drag pans"><FontIcon Glyph="&#xE7C9;" FontSize="16" /></ToggleButton>
+                <ToggleButton x:Name="ToolSelect" Style="{StaticResource ToolButton}" Tag="Select" Click="Tool_Click" ToolTipService.ToolTip="Move Tool (V): select, move and duplicate objects"><FontIcon Glyph="&#xE8B0;" FontSize="16" /></ToggleButton>
+                <ToggleButton x:Name="ToolNode" Style="{StaticResource ToolButton}" Tag="Node" Click="Tool_Click" ToolTipService.ToolTip="Node Tool (A): move points and bezier handles; click a segment to insert a point; Delete removes a point"><FontIcon Glyph="&#xE9E9;" FontSize="16" /></ToggleButton>
+                <Rectangle Height="1" Fill="{ThemeResource CpLine}" Margin="6,4" />
+                <ToggleButton x:Name="ToolPen" Style="{StaticResource ToolButton}" Tag="Pen" Click="Tool_Click" ToolTipService.ToolTip="Pen tool (P): click to add points, double-click or Enter to finish, Esc cancels"><FontIcon Glyph="&#xEDC6;" FontSize="16" /></ToggleButton>
+                <ToggleButton x:Name="ToolFreehand" Style="{StaticResource ToolButton}" Tag="Freehand" Click="Tool_Click" ToolTipService.ToolTip="Freehand (F): drag to draw a line or area with the active symbol"><FontIcon Glyph="&#xE70F;" FontSize="16" /></ToggleButton>
+                <ToggleButton x:Name="ToolRectangle" Style="{StaticResource ToolButton}" Tag="Rectangle" Click="Tool_Click" ToolTipService.ToolTip="Rectangle (M): drag an area"><FontIcon Glyph="&#xE739;" FontSize="16" /></ToggleButton>
+                <ToggleButton x:Name="ToolEllipse" Style="{StaticResource ToolButton}" Tag="Ellipse" Click="Tool_Click" ToolTipService.ToolTip="Ellipse (L): drag an area"><FontIcon Glyph="&#xEA3A;" FontSize="16" /></ToggleButton>
+                <ToggleButton x:Name="ToolPoint" Style="{StaticResource ToolButton}" Tag="Point" Click="Tool_Click" ToolTipService.ToolTip="Point symbol (T): click to place the active point symbol"><FontIcon Glyph="&#xE91F;" FontSize="16" /></ToggleButton>
+                <Rectangle Height="1" Fill="{ThemeResource CpLine}" Margin="6,4" />
+                <ToggleButton x:Name="ToolSketch" Style="{StaticResource ToolButton}" Tag="Sketch" Click="Tool_Click" ToolTipService.ToolTip="Sketch pencil (N): freehand strokes on the sketch layer"><FontIcon Glyph="&#xED63;" FontSize="16" /></ToggleButton>
+                <ToggleButton x:Name="ToolEraser" Style="{StaticResource ToolButton}" Tag="Eraser" Click="Tool_Click" ToolTipService.ToolTip="Stroke eraser (E): click a sketch stroke to remove it"><FontIcon Glyph="&#xED60;" FontSize="16" /></ToggleButton>
+                <Rectangle Height="1" Fill="{ThemeResource CpLine}" Margin="6,4" />
+                <Button x:Name="DeleteButton" Width="40" Height="40" Padding="0" CornerRadius="8" BorderThickness="0" Background="Transparent" Click="Delete_Click" ToolTipService.ToolTip="Delete the selection (Delete)" IsEnabled="False"><FontIcon Glyph="&#xE74D;" FontSize="16" /></Button>
+            </StackPanel>
+
+            <Grid Grid.Column="1">
+                <Grid.ContextFlyout>
+                    <MenuFlyout x:Name="ObjectMenu">
+                        <MenuFlyoutItem Text="Duplicate" Click="Duplicate_Click"><MenuFlyoutItem.Icon><FontIcon Glyph="&#xE8C8;" /></MenuFlyoutItem.Icon></MenuFlyoutItem>
+                        <MenuFlyoutItem Text="Change symbol to the active one" Click="ApplySymbol_Click"><MenuFlyoutItem.Icon><FontIcon Glyph="&#xE80A;" /></MenuFlyoutItem.Icon></MenuFlyoutItem>
+                        <MenuFlyoutItem Text="Reverse direction" Click="Reverse_Click" />
+                        <MenuFlyoutItem Text="Close line into area" Click="CloseLine_Click" />
+                        <MenuFlyoutSeparator />
+                        <MenuFlyoutItem Text="Delete" Click="Delete_Click"><MenuFlyoutItem.Icon><FontIcon Glyph="&#xE74D;" /></MenuFlyoutItem.Icon></MenuFlyoutItem>
+                    </MenuFlyout>
+                </Grid.ContextFlyout>
                 <canvas:CanvasControl x:Name="Canvas" Draw="Canvas_Draw" CreateResources="Canvas_CreateResources" SizeChanged="Canvas_SizeChanged"
                                       PointerPressed="Canvas_PointerPressed" PointerMoved="Canvas_PointerMoved" PointerReleased="Canvas_PointerReleased"
                                       PointerCanceled="Canvas_PointerReleased" PointerCaptureLost="Canvas_PointerReleased" PointerWheelChanged="Canvas_PointerWheelChanged"
+                                      DoubleTapped="Canvas_DoubleTapped" RightTapped="Canvas_RightTapped" KeyDown="Canvas_KeyDown"
                                       ManipulationMode="TranslateX,TranslateY,Scale,TranslateInertia" ManipulationDelta="Canvas_ManipulationDelta"
-                                      ClearColor="Transparent" UseSharedDevice="True" />
+                                      ClearColor="Transparent" UseSharedDevice="True" IsTabStop="True" />
+                <!-- Select Area mode (new project): the frame stays centred; pan the imagery under it, then lock. -->
+                <Border x:Name="AreaBar" Visibility="Collapsed" VerticalAlignment="Top" HorizontalAlignment="Center" Margin="0,12,0,0" CornerRadius="10" Background="{ThemeResource CpPaper}" BorderBrush="{ThemeResource CpLine}" BorderThickness="1" Padding="12,8">
+                    <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                        <TextBlock Text="Select the map area: drag the imagery under the A4 frame." FontSize="12" Foreground="{ThemeResource CpInk}" VerticalAlignment="Center" />
+                        <TextBox x:Name="GoToBox" PlaceholderText="lat, lon" Width="170" FontSize="12" KeyDown="GoToBox_KeyDown" ToolTipService.ToolTip="Jump to a location: latitude, longitude (WGS84), then Enter" />
+                        <Button Content="Go" Click="GoTo_Click" />
+                        <Button x:Name="LockButton" Style="{StaticResource CpPrimaryButton}" Click="LockArea_Click" ToolTipService.ToolTip="Lock the area: fixes the UTM zone and the frame, then drawing starts">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon Glyph="&#xE72E;" FontSize="14" />
+                                <TextBlock Text="Lock area" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Border>
                 <!-- Esri attribution (required by the Location Platform terms) and the status line. -->
                 <Grid VerticalAlignment="Bottom" Padding="8,4" Background="#80FFFFFF" RequestedTheme="Light">
                     <TextBlock x:Name="StatusText" FontFamily="Consolas" FontSize="11" Foreground="#2B2A28" VerticalAlignment="Center" />
                     <TextBlock x:Name="AttributionText" FontSize="10" Foreground="#2B2A28" HorizontalAlignment="Right" VerticalAlignment="Center" />
                 </Grid>
-                <InfoBar x:Name="MapStatus" IsOpen="False" IsClosable="True" VerticalAlignment="Top" Margin="12" />
+                <InfoBar x:Name="MapStatus" IsOpen="False" IsClosable="True" VerticalAlignment="Top" Margin="12,64,12,12" />
             </Grid>
-            <views:CoursePanel x:Name="Courses" Grid.Column="1" Visibility="Collapsed" />
-            <views:ContourPanel x:Name="Contours" Grid.Column="1" Visibility="Collapsed" />
+
+            <views:SymbolPanel x:Name="Symbols" Grid.Column="2" Visibility="Collapsed" />
+            <views:CoursePanel x:Name="Courses" Grid.Column="2" Visibility="Collapsed" />
+            <views:ContourPanel x:Name="Contours" Grid.Column="2" Visibility="Collapsed" />
         </Grid>
     </Grid>
 </UserControl>

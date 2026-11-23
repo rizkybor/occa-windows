@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.Graphics.Canvas;
 using Microsoft.Graphics.Canvas.UI;
 using Microsoft.Graphics.Canvas.UI.Xaml;
@@ -7,17 +8,18 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
+using Occa.App.License;
 using Occa.Core;
 using Occa.Core.Basemap;
 using Occa.Core.Contour;
 using Occa.Core.Courses;
 using Occa.Core.Export;
 using Occa.Core.Geometry;
-using Occa.App.License;
 using Occa.Core.Import;
 using Occa.Core.License;
 using Occa.Core.Project;
 using Occa.Core.Render;
+using Occa.Core.Sheet;
 using Occa.Core.Vector;
 using Occa.Render;
 using Windows.Foundation;
@@ -28,13 +30,20 @@ namespace Occa.App.Views;
 
 /// <summary>
 /// The map of one project: objects drawn by <see cref="MapRenderer"/> over the Esri basemap or a GeoTIFF, with the A4
-/// frame and north lines, contours from elevation data (M4) and the purple course overprint (M4). Mouse: drag or middle
-/// button pans, wheel pans, Ctrl+wheel zooms (FR-W5); touch: two fingers pan, pinch zooms (FR-W6); Ctrl+0 fits the map
-/// area. With the Courses panel open, a click places or selects controls and dragging moves them.
+/// frame and north lines, contours (M4) and the purple course overprint (M4). Editing (M2 UI): Select Area mode for a new
+/// project, the tool rail (Navigate, Move, Node, Pen, Freehand, Rectangle, Ellipse, Point, Sketch, Eraser) with the
+/// Mac's tool keys, selection with move/duplicate/delete, undo/redo and autosave. Mouse: drag or middle button pans,
+/// wheel pans, Ctrl+wheel zooms (FR-W5); touch: two fingers pan, pinch zooms (FR-W6); Ctrl+0 fits the map area.
 /// </summary>
 public sealed partial class MapView : UserControl
 {
     public event EventHandler? BackRequested;
+
+    private enum Tool { Navigate, Select, Node, Pen, Freehand, Rectangle, Ellipse, Point, Sketch, Eraser }
+    private enum Drag { None, Pan, MoveFeatures, MoveNode, MoveHandleIn, MoveHandleOut, Box, Freehand, Sketch, Shape, MoveControl }
+
+    /// <summary>One undo step: the whole object and sketch lists before and after (value copies).</summary>
+    private sealed record DocState(List<Feature> Features, List<Stroke> Strokes);
 
     private readonly MapRenderer _renderer = new();
     private readonly ContourRenderer _contourRenderer = new();
@@ -49,14 +58,28 @@ public sealed partial class MapView : UserControl
     private double _basemapOpacity = 1;
     private bool _showBasemap = true;
     private Point? _dragLast;
+    private Point? _dragStart;
     private uint? _dragPointer;
     private bool _fitPending;
+
+    // Editing
+    private Tool _tool = Tool.Navigate;
+    private Drag _drag = Drag.None;
+    private readonly EditHistory<DocState> _history = new();
+    private readonly HashSet<Guid> _selected = new();
+    private int? _activeNode;
+    private DocState? _dragBefore;
+    private readonly List<Point2D> _draft = new();       // Pen tool points
+    private readonly List<Point2D> _freehand = new();    // Freehand / Sketch points while dragging
+    private Point2D? _cursor;
+    private Point2D? _shapeStart;
+    private Point2D? _shapeEnd;
+    private bool _dragMoved;
 
     // M4: course planner + contours
     private CourseOverprint? _overprint;
     private readonly Dictionary<string, CanvasBitmap> _courseImages = new();
     private Guid? _dragControl;
-    private bool _dragMoved;
     private DemGrid? _dem;
     private List<ContourLine>? _importedContours;
     private List<ContourLine>? _contourLines;
@@ -80,6 +103,9 @@ public sealed partial class MapView : UserControl
         Contours.RemoveDemRequested += (_, _) => RemoveDem();
         Contours.ExportRequested += async (_, _) => await ExportContoursAsync();
         Contours.ConvertRequested += (_, _) => ConvertContours();
+        Symbols.SymbolChosen += (_, _) => SymbolChosen();
+        Symbols.ApplyRequested += (_, _) => ApplySymbolToSelection();
+        Symbols.CloseRequested += (_, _) => { SymbolsToggle.IsChecked = false; UpdatePanels(); };
     }
 
     /// <summary>Shows a project package folder.</summary>
@@ -110,12 +136,18 @@ public sealed partial class MapView : UserControl
             Courses.Bind(doc.Courses, doc.Project.Sheet);
             Contours.Bind(doc.Project.Contours, doc.Project.Sheet, canDownload: _zone is not null && doc.Project.Frame is not null);
             Contours.ShowDem(_dem, _importedContours?.Count ?? 0);
+            Symbols.Bind(doc.Project.Sheet);
             RebuildOverprint();
             _ = LoadCourseImagesAsync();
             RegenerateContours();
+            _history.Clear();
+            _selected.Clear();
+            _activeNode = null;
+            SetTool(doc.Project.AreaLocked ? Tool.Select : Tool.Navigate);
+            UpdateAreaMode();
             _fitPending = true;
             Canvas.Invalidate();
-            if (!entry.HasThumbnail && _fitRect is { } fit) _ = RenderThumbnailAsync(entry.ThumbnailPath, scene, doc, fit);
+            if (!entry.HasThumbnail && _fitRect is { } fit && doc.Project.AreaLocked) _ = RenderThumbnailAsync(entry.ThumbnailPath, scene, doc, fit);
         }
         catch (Exception ex)
         {
@@ -229,6 +261,8 @@ public sealed partial class MapView : UserControl
                 foreach (var (name, json) in files) ProjectPackage.WriteAtomic(Path.Combine(folder, name), System.Text.Encoding.UTF8.GetBytes(json));
                 if (dropCourses) File.Delete(Path.Combine(folder, ProjectPackage.CoursesFile));
             });
+            // The list preview follows the drawing.
+            if (_scene is not null && _fitRect is { } fit && _doc.Project.AreaLocked) _ = RenderThumbnailAsync(Path.Combine(folder, ProjectPackage.ThumbnailFile), _scene, _doc, fit);
         }
         catch (Exception ex)
         {
@@ -270,11 +304,33 @@ public sealed partial class MapView : UserControl
             MapRenderer.DrawVeil(ds, _view, _basemapOpacity);
         }
         if (_contourLines is { Count: > 0 } lines && _doc.Project.Contours.IsEnabled) _contourRenderer.Draw(ds, lines, _doc.Project.Contours, _doc.Project.Sheet, _view);
-        if (_doc.Project.Frame is { } frame) MapRenderer.DrawFrame(ds, _view, frame, _doc.Project.NorthGrid, _doc.Project.Sheet);
+        if (_doc.Project.Frame is { } frame)
+        {
+            if (IsSelectingArea) SelectionRenderer.DrawAreaFrame(ds, _view, frame);
+            else MapRenderer.DrawFrame(ds, _view, frame, _doc.Project.NorthGrid, _doc.Project.Sheet);
+        }
         _renderer.Draw(ds, _scene, _view, _doc.Project.Sheet);
         if (_overprint is { IsEmpty: false } o) CourseOverprintRenderer.Draw(ds, o, _view, minLinePx: 1, OverprintScreenAlpha, _courseImages);
+        DrawEditing(ds);
         DrawCourseSelection(ds);
         UpdateStatus();
+    }
+
+    private void DrawEditing(CanvasDrawingSession ds)
+    {
+        if (_doc is null) return;
+        foreach (var id in _selected)
+        {
+            var f = _doc.Features.FirstOrDefault(x => x.Id == id);
+            if (f is null) continue;
+            bool single = _selected.Count == 1;
+            SelectionRenderer.DrawFeature(ds, f, _view, showNodes: single && _tool is Tool.Node or Tool.Select, _tool == Tool.Node ? _activeNode : null, showHandles: _tool == Tool.Node);
+        }
+        var color = Symbols.ActiveSymbol is { } s ? MapRenderer.ToColor(s.ColorHex) : SelectionRenderer.Accent;
+        float widthPx = (float)((Symbols.ActiveSymbol?.DrawingWidthMM ?? 0.25) * MetersPerMM * _view.PixelsPerMeter);
+        if (_draft.Count > 0) SelectionRenderer.DrawDraft(ds, _draft, _cursor, _view, color, widthPx, closed: ActiveKind == MapSymbol.Kind.Area);
+        if (_freehand.Count > 1) SelectionRenderer.DrawDraft(ds, _freehand, null, _view, _tool == Tool.Sketch ? MapRenderer.ToColor(SketchColor) : color, _tool == Tool.Sketch ? (float)(SketchWidthMM * MetersPerMM * _view.PixelsPerMeter) : widthPx, closed: false);
+        if (_shapeStart is { } a && _shapeEnd is { } b) SelectionRenderer.DrawBox(ds, a, b, _view, ellipse: _tool == Tool.Ellipse);
     }
 
     /// <summary>Selected control: a thin blue ring around its symbol.</summary>
@@ -292,8 +348,10 @@ public sealed partial class MapView : UserControl
         string coords = _zone is { } z ? $"{z.Label}  E {c.X:F0}  N {c.Y:F0}" : $"x {c.X:F0}  y {c.Y:F0}";
         // Screen scale: metres per CSS pixel at 96 dpi expressed as a map scale.
         double screenScale = 1 / _view.PixelsPerMeter / 0.0254 * 96;
-        var mode = Courses.Visibility == Visibility.Visible && Courses.PlaceKind is { } k ? $"   ·   click to place {k.Label().ToLowerInvariant()}" : "";
-        StatusText.Text = $"{coords}   ·   1:{_doc.Project.Sheet.ScaleDenominator} map, screen ≈ 1:{screenScale:F0}   ·   {_doc.ObjectCount} objects"
+        var mode = IsSelectingArea ? "   ·   select area" : $"   ·   {ToolLabel(_tool)}" + (Symbols.ActiveSymbol is { } s && _tool is Tool.Pen or Tool.Freehand or Tool.Rectangle or Tool.Ellipse or Tool.Point ? $" · {s.Code} {s.Name}" : "");
+        if (Courses.Visibility == Visibility.Visible && Courses.PlaceKind is { } k) mode = $"   ·   click to place {k.Label().ToLowerInvariant()}";
+        var selection = _selected.Count > 0 ? $"   ·   {_selected.Count} selected" : "";
+        StatusText.Text = $"{coords}   ·   1:{_doc.Project.Sheet.ScaleDenominator} map, screen ≈ 1:{screenScale:F0}   ·   {_doc.ObjectCount} objects{selection}"
                           + (_basemap is { PendingTiles: > 0 } b ? $"   ·   loading {b.PendingTiles} tiles" : "") + mode;
     }
 
@@ -304,17 +362,350 @@ public sealed partial class MapView : UserControl
         // Contours need a license key (ProFeature.Contours); the panel stays closed on Starter.
         if (ReferenceEquals(sender, ContoursToggle) && ContoursToggle.IsChecked == true && !AppLicense.Shared.Require(ProFeature.Contours)) { ContoursToggle.IsChecked = false; return; }
         // One side panel at a time.
-        if (ReferenceEquals(sender, CoursesToggle) && CoursesToggle.IsChecked == true) ContoursToggle.IsChecked = false;
-        if (ReferenceEquals(sender, ContoursToggle) && ContoursToggle.IsChecked == true) CoursesToggle.IsChecked = false;
+        foreach (var t in new[] { SymbolsToggle, CoursesToggle, ContoursToggle })
+            if (!ReferenceEquals(t, sender) && ((ToggleButton)sender).IsChecked == true) t.IsChecked = false;
         UpdatePanels();
     }
 
     private void UpdatePanels()
     {
+        Symbols.Visibility = SymbolsToggle.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
         Courses.Visibility = CoursesToggle.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
         Contours.Visibility = ContoursToggle.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
         if (Courses.Visibility != Visibility.Visible) Courses.ClearPlacement();
         Canvas.Invalidate();
+    }
+
+    // MARK: Area selection (new project)
+
+    private bool IsSelectingArea => _doc is not null && !_doc.Project.AreaLocked;
+
+    private void UpdateAreaMode()
+    {
+        bool selecting = IsSelectingArea;
+        AreaBar.Visibility = selecting ? Visibility.Visible : Visibility.Collapsed;
+        ToolRail.Visibility = selecting ? Visibility.Collapsed : Visibility.Visible;
+        ExportButton.IsEnabled = !selecting;
+        foreach (var t in new[] { SymbolsToggle, CoursesToggle, ContoursToggle }) t.IsEnabled = !selecting;
+        if (selecting && _doc is not null) { _tool = Tool.Navigate; SyncToolButtons(); }
+        if (selecting && _zone is { } z && _doc?.Project.Frame is { } frame) GoToBox.Text = Format(z.Unproject(frame.Center));
+    }
+
+    private static string Format(LatLon ll) => $"{ll.Lat.ToString("0.#####", CultureInfo.InvariantCulture)}, {ll.Lon.ToString("0.#####", CultureInfo.InvariantCulture)}";
+
+    /// <summary>Select Area mode: after a pan, the frame follows the view centre and the UTM zone follows the location (FR-1.2).</summary>
+    private void FrameFollowsView()
+    {
+        if (_doc is null || !IsSelectingArea || _zone is not { } zone) return;
+        var ll = zone.Unproject(_view.Center);
+        var next = UtmZone.Containing(ll);
+        if (next != zone)
+        {
+            // Everything is in metres of the current zone: re-express the view centre and switch the basemap.
+            _zone = next;
+            _doc.Project.CrsEpsg = next.Epsg;
+            _view.Center = next.Project(ll);
+            SetUpBasemap(_doc);
+        }
+        _doc.Project.FrameOrigin = MapFrame.Centered(_view.Center, _doc.Project.Sheet).SnappedToStep(_doc.Project.SnapStepM).Origin;
+        _fitRect = _doc.Project.Frame?.Extent;
+        GoToBox.Text = Format(ll);
+        ScheduleSave();
+    }
+
+    private void GoTo_Click(object sender, RoutedEventArgs e) => GoTo();
+    private void GoToBox_KeyDown(object sender, KeyRoutedEventArgs e) { if (e.Key == VirtualKey.Enter) { GoTo(); e.Handled = true; } }
+
+    private void GoTo()
+    {
+        var parts = GoToBox.Text.Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length != 2 || !double.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var lat) || !double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var lon)
+            || Math.Abs(lat) > 84 || Math.Abs(lon) > 180)
+        {
+            Show(InfoBarSeverity.Warning, "Location", "Enter latitude and longitude in decimal degrees, e.g. -6.1754, 106.8272.");
+            return;
+        }
+        if (_zone is { } zone) _view.Center = zone.Project(new LatLon(lat, lon));
+        FrameFollowsView();
+        if (_fitRect is { } r) _view.Fit(r);
+        Canvas.Invalidate();
+    }
+
+    /// <summary>Lock the area: the UTM zone and the frame are fixed; drawing starts (FR-1.3).</summary>
+    private void LockArea_Click(object sender, RoutedEventArgs e)
+    {
+        if (_doc is null || _doc.Project.Frame is null) return;
+        if (!AppLicense.Shared.Require(ProFeature.AllScales, overLimit: !FreeLimits.AllowsScale(AppLicense.Shared.IsPro, _doc.Project.Sheet.ScaleDenominator))) return;
+        _doc.Project.AreaLocked = true;
+        _doc.Project.AreaBackup = null;
+        SummaryText.Text = _doc.Project.TechnicalSummary;
+        UpdateAreaMode();
+        SetTool(Tool.Pen);
+        SymbolsToggle.IsChecked = true;
+        UpdatePanels();
+        Fit();
+        ScheduleSave();
+        Show(InfoBarSeverity.Success, "Area locked", "Choose a symbol in the Symbols panel and draw with the Pen (P), Freehand (F), Rectangle (M), Ellipse (L) or Point (T) tool.");
+    }
+
+    // MARK: Tools
+
+    private void Tool_Click(object sender, RoutedEventArgs e)
+    {
+        var tag = ((ToggleButton)sender).Tag as string ?? "Navigate";
+        SetTool(Enum.TryParse<Tool>(tag, out var t) ? t : Tool.Navigate);
+    }
+
+    private void SetTool(Tool tool)
+    {
+        if (_tool == Tool.Pen && tool != Tool.Pen) FinishDraft();
+        _tool = tool;
+        if (tool != Tool.Node) _activeNode = null;
+        SyncToolButtons();
+        Canvas.Invalidate();
+    }
+
+    private void SyncToolButtons()
+    {
+        foreach (var b in new[] { ToolNavigate, ToolSelect, ToolNode, ToolPen, ToolFreehand, ToolRectangle, ToolEllipse, ToolPoint, ToolSketch, ToolEraser })
+            b.IsChecked = (b.Tag as string) == _tool.ToString();
+        DeleteButton.IsEnabled = _selected.Count > 0;
+        UndoButton.IsEnabled = _history.CanUndo;
+        RedoButton.IsEnabled = _history.CanRedo;
+        Symbols.SetSelection(_selected.Count > 0);
+    }
+
+    private static string ToolLabel(Tool t) => t switch
+    {
+        Tool.Navigate => "Navigate (H)", Tool.Select => "Move Tool (V)", Tool.Node => "Node Tool (A)", Tool.Pen => "Pen (P)", Tool.Freehand => "Freehand (F)",
+        Tool.Rectangle => "Rectangle (M)", Tool.Ellipse => "Ellipse (L)", Tool.Point => "Point symbol (T)", Tool.Sketch => "Sketch pencil (N)", _ => "Stroke eraser (E)",
+    };
+
+    /// <summary>Choosing a symbol switches to a tool that draws its kind (the Mac's Symbols panel behaviour).</summary>
+    private void SymbolChosen()
+    {
+        if (Symbols.ActiveSymbol is not { } s || IsSelectingArea) { Canvas.Invalidate(); return; }
+        switch (s.SymbolKind)
+        {
+            case MapSymbol.Kind.Point: SetTool(Tool.Point); break;
+            case MapSymbol.Kind.Line: if (_tool is not (Tool.Pen or Tool.Freehand)) SetTool(Tool.Pen); break;
+            case MapSymbol.Kind.Area: if (_tool is not (Tool.Pen or Tool.Freehand or Tool.Rectangle or Tool.Ellipse)) SetTool(Tool.Pen); break;
+        }
+        Canvas.Invalidate();
+    }
+
+    private MapSymbol.Kind? ActiveKind => Symbols.ActiveSymbol?.SymbolKind;
+    private double MetersPerMM => _doc?.Project.Sheet.GroundMeters(1) ?? 1;
+    private const string SketchColor = "#000000";
+    private const double SketchWidthMM = 0.25;
+
+    private void Canvas_KeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (_doc is null) return;
+        bool ctrl = (InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control) & Windows.UI.Core.CoreVirtualKeyStates.Down) != 0;
+        if (ctrl) return;   // Ctrl shortcuts are accelerators
+        e.Handled = true;
+        switch (e.Key)
+        {
+            case VirtualKey.Escape:
+                if (_draft.Count > 0) { _draft.Clear(); Canvas.Invalidate(); }
+                else { _selected.Clear(); _activeNode = null; SyncToolButtons(); Canvas.Invalidate(); }
+                break;
+            case VirtualKey.Enter: if (_tool == Tool.Pen) FinishDraft(); break;
+            case VirtualKey.Delete:
+            case VirtualKey.Back:
+                if (_tool == Tool.Node && _activeNode is { } ni) DeleteNode(ni); else DeleteSelection();
+                break;
+            case VirtualKey.H: if (!IsSelectingArea) SetTool(Tool.Navigate); break;
+            case VirtualKey.V: if (!IsSelectingArea) SetTool(Tool.Select); break;
+            case VirtualKey.A: if (!IsSelectingArea) SetTool(Tool.Node); break;
+            case VirtualKey.P: if (!IsSelectingArea) SetTool(Tool.Pen); break;
+            case VirtualKey.F: if (!IsSelectingArea) SetTool(Tool.Freehand); break;
+            case VirtualKey.M: if (!IsSelectingArea) SetTool(Tool.Rectangle); break;
+            case VirtualKey.L: if (!IsSelectingArea) SetTool(Tool.Ellipse); break;
+            case VirtualKey.T: if (!IsSelectingArea) SetTool(Tool.Point); break;
+            case VirtualKey.N: if (!IsSelectingArea) SetTool(Tool.Sketch); break;
+            case VirtualKey.E: if (!IsSelectingArea) SetTool(Tool.Eraser); break;
+            default: e.Handled = false; break;
+        }
+    }
+
+    // MARK: Edits + history
+
+    private DocState Snapshot() => new(_doc!.Features.Select(f => f.Clone()).ToList(), new List<Stroke>(_doc.Strokes));
+
+    /// <summary>Applies an edit of the object/sketch lists as one undo step, then redraws and saves.</summary>
+    private void Commit(string label, Action edit)
+    {
+        if (_doc is null) return;
+        var before = Snapshot();
+        edit();
+        Record(label, before);
+    }
+
+    private void Record(string label, DocState before)
+    {
+        if (_doc is null) return;
+        _history.Record(label, before, Snapshot());
+        AfterEdit();
+    }
+
+    private void AfterEdit()
+    {
+        if (_doc is null) return;
+        _scene = MapScene.Build(_doc.Features, _doc.Strokes, _doc.Project.Sheet, _doc.Project.AreaOpacityValue);
+        _renderer.InvalidateCache();
+        _selected.RemoveWhere(id => _doc.Features.All(f => f.Id != id));
+        SyncToolButtons();
+        Canvas.Invalidate();
+        ScheduleSave();
+    }
+
+    private void Restore(DocState? state)
+    {
+        if (_doc is null || state is null) return;
+        _doc.Features = state.Features.Select(f => f.Clone()).ToList();
+        _doc.Strokes = new List<Stroke>(state.Strokes);
+        _activeNode = null;
+        AfterEdit();
+    }
+
+    private void Undo_Click(object sender, RoutedEventArgs e) => Restore(_history.Undo());
+    private void Redo_Click(object sender, RoutedEventArgs e) => Restore(_history.Redo());
+    private void Undo_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args) { Restore(_history.Undo()); args.Handled = true; }
+    private void Redo_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args) { Restore(_history.Redo()); args.Handled = true; }
+    private void Save_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args) { _saveTimer?.Stop(); SaveNow(); Show(InfoBarSeverity.Success, "Saved", "The project was saved."); args.Handled = true; }
+    private void Duplicate_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args) { DuplicateSelection(); args.Handled = true; }
+    private void SelectAll_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        if (_doc is null || IsSelectingArea) return;
+        _selected.Clear();
+        foreach (var f in _doc.Features.Where(f => f.IsVisible)) _selected.Add(f.Id);
+        if (_tool is not (Tool.Select or Tool.Node)) SetTool(Tool.Select); else { SyncToolButtons(); Canvas.Invalidate(); }
+        args.Handled = true;
+    }
+
+    private void AddFeature(Feature f)
+    {
+        if (_doc is null) return;
+        if (f.Name.Length == 0) f.Name = SymbolFeatures.DefaultName(_doc.Features, f);
+        Commit("Add object", () => _doc.Features.Add(f));
+        _selected.Clear();
+        _selected.Add(f.Id);
+        SyncToolButtons();
+    }
+
+    private void DeleteSelection()
+    {
+        if (_doc is null || _selected.Count == 0) return;
+        var ids = _selected.ToHashSet();
+        Commit("Delete", () => _doc.Features.RemoveAll(f => ids.Contains(f.Id)));
+        _selected.Clear();
+        SyncToolButtons();
+        Canvas.Invalidate();
+    }
+
+    private void Delete_Click(object sender, RoutedEventArgs e) => DeleteSelection();
+
+    private void DuplicateSelection()
+    {
+        if (_doc is null || _selected.Count == 0) return;
+        double d = _doc.Project.Sheet.GroundMeters(2);
+        var copies = _doc.Features.Where(f => _selected.Contains(f.Id)).Select(f => { var c = f.Clone(); c.Id = Guid.NewGuid(); c.Name = ""; return c.MovedBy(new Point2D(d, -d)); }).ToList();
+        foreach (var c in copies) c.Name = SymbolFeatures.DefaultName(_doc.Features, c);
+        Commit("Duplicate", () => _doc.Features.AddRange(copies));
+        _selected.Clear();
+        foreach (var c in copies) _selected.Add(c.Id);
+        SyncToolButtons();
+        Canvas.Invalidate();
+    }
+
+    private void Duplicate_Click(object sender, RoutedEventArgs e) => DuplicateSelection();
+
+    private void ApplySymbol_Click(object sender, RoutedEventArgs e) => ApplySymbolToSelection();
+
+    /// <summary>"Apply to selection": the selected objects take the active symbol (<c>FeatureEdit.SwitchSymbol</c>).</summary>
+    private void ApplySymbolToSelection()
+    {
+        if (_doc is null || Symbols.ActiveSymbol is not { } s || _selected.Count == 0) return;
+        var targets = _doc.Features.Where(f => _selected.Contains(f.Id)).ToList();
+        if (!targets.Any(f => f.CanSwitch(s))) { Show(InfoBarSeverity.Informational, "Change symbol", $"{s.Code} {s.Name} does not fit the selected object kind."); return; }
+        Commit("Change symbol", () => { foreach (var f in targets) f.SwitchSymbol(s); });
+    }
+
+    private void Reverse_Click(object sender, RoutedEventArgs e)
+    {
+        if (_doc is null || _selected.Count == 0) return;
+        Commit("Reverse", () => { foreach (var f in _doc.Features.Where(f => _selected.Contains(f.Id) && f.Kind == FeatureKind.Line)) f.Reverse(); });
+    }
+
+    private void CloseLine_Click(object sender, RoutedEventArgs e)
+    {
+        if (_doc is null || _selected.Count == 0) return;
+        Commit("Close line", () =>
+        {
+            foreach (var f in _doc.Features.Where(f => _selected.Contains(f.Id) && f.Kind == FeatureKind.Line && f.Nodes.Count >= 3))
+            {
+                if (f.IsRingLine) f.Nodes.RemoveAt(f.Nodes.Count - 1);
+                f.Kind = FeatureKind.Area;
+            }
+        });
+    }
+
+    private void DeleteNode(int index)
+    {
+        if (_doc is null || _selected.Count != 1) return;
+        var f = _doc.Features.FirstOrDefault(x => x.Id == _selected.First());
+        if (f is null) return;
+        var all = f.AllNodes();
+        int min = f.Kind == FeatureKind.Area ? 3 : 2;
+        if (all.Count <= min) { DeleteSelection(); return; }
+        Commit("Delete point", () => { all.RemoveAt(index); f.SetAllNodes(all); });
+        _activeNode = null;
+    }
+
+    private void FinishDraft()
+    {
+        if (_doc is null) { _draft.Clear(); return; }
+        var pts = _draft.ToList();
+        _draft.Clear();
+        _cursor = null;
+        if (pts.Count < 2) { Canvas.Invalidate(); return; }
+        var nodes = pts.Select(p => new BezierNode(p)).ToList();
+        AddFeature(MakeVector(nodes, forceLine: pts.Count < 3));
+    }
+
+    /// <summary>A line or area from drawn nodes with the active symbol (or the plain pen when none is chosen).</summary>
+    private Feature MakeVector(List<BezierNode> nodes, bool forceLine)
+    {
+        var s = Symbols.ActiveSymbol;
+        bool area = !forceLine && s?.SymbolKind == MapSymbol.Kind.Area;
+        if (s is null || s.SymbolKind == MapSymbol.Kind.Point) return SymbolFeatures.Sketch(area ? FeatureKind.Area : FeatureKind.Line, nodes, SketchColor, SketchWidthMM);
+        return area ? SymbolFeatures.Area(s, nodes) : SymbolFeatures.Line(s, nodes, Symbols.SizeFactor);
+    }
+
+    private Feature? FeatureAt(Point2D p)
+    {
+        if (_doc is null) return null;
+        double tol = 7 / _view.PixelsPerMeter;
+        Feature? best = null;
+        double bestD = double.PositiveInfinity;
+        foreach (var f in _doc.Features.Where(f => f.IsVisible))
+        {
+            if (f.Bounds is { } b && !b.InsetBy(-tol - f.PointRadiusM(_doc.Project.Sheet)).Contains(p)) continue;
+            double d = f.Kind == FeatureKind.Point ? Math.Max(0, p.DistanceTo(f.Nodes[0].Point) - f.PointRadiusM(_doc.Project.Sheet)) : f.DistanceTo(p, tol * 0.2);
+            if (f.Kind == FeatureKind.Area && d > tol && f.ContainsPoint(p, tol * 0.2)) d = tol * 0.9;   // inside an area: hit, but outlines win
+            if (d <= tol && d < bestD) { best = f; bestD = d; }
+        }
+        return best;
+    }
+
+    private int? NodeAt(Feature f, Point2D p)
+    {
+        double tol = 7 / _view.PixelsPerMeter;
+        var all = f.AllNodes();
+        for (int i = 0; i < all.Count; i++) if (all[i].Point.DistanceTo(p) <= tol) return i;
+        return null;
     }
 
     // MARK: Courses
@@ -371,17 +762,9 @@ public sealed partial class MapView : UserControl
         if (ids.Contains(c.Id) && c.Kind != ControlKind.Control) return;
         switch (c.Kind)
         {
-            case ControlKind.Start:
-                ids.RemoveAll(id => id == c.Id);
-                ids.Insert(0, c.Id);
-                break;
-            case ControlKind.Finish:
-                ids.RemoveAll(id => id == c.Id);
-                ids.Add(c.Id);
-                break;
-            default:
-                ids.Add(c.Id);
-                break;
+            case ControlKind.Start: ids.RemoveAll(id => id == c.Id); ids.Insert(0, c.Id); break;
+            case ControlKind.Finish: ids.RemoveAll(id => id == c.Id); ids.Add(c.Id); break;
+            default: ids.Add(c.Id); break;
         }
     }
 
@@ -393,7 +776,6 @@ public sealed partial class MapView : UserControl
         set.Controls.Add(control);
         if (Courses.SelectedCourse is { } course)
         {
-            // Controls go before the finish so the course order stays start → controls → finish.
             if (kind == ControlKind.Control && course.ControlIds.Count > 0 && set.Control(course.ControlIds[^1])?.Kind == ControlKind.Finish)
                 course.ControlIds.Insert(course.ControlIds.Count - 1, control.Id);
             else AddToCourse(course, control);
@@ -658,19 +1040,16 @@ public sealed partial class MapView : UserControl
         }
     }
 
-    /// <summary>"Convert to vector objects": the contour lines become ISOM 101/102/103 line features; the live contours are hidden.</summary>
+    /// <summary>"Convert to vector objects": the contour lines become ISOM 101/102/103 line features (one undo step); the live contours are hidden.</summary>
     private void ConvertContours()
     {
         if (_doc is null || _contourLines is not { Count: > 0 } lines) { Show(InfoBarSeverity.Informational, "No contours", "Generate contours first."); return; }
         var settings = _doc.Project.Contours;
-        _doc.Features.AddRange(lines.Select(l => l.ToFeature(settings)));
-        _scene = MapScene.Build(_doc.Features, _doc.Strokes, _doc.Project.Sheet, _doc.Project.AreaOpacityValue);
-        _renderer.InvalidateCache();
+        Commit("Convert contours", () => _doc.Features.AddRange(lines.Select(l => l.ToFeature(settings))));
         Contours.Settings.IsEnabled = false;
         _doc.Project.ContourSettings = Contours.Settings;
         Contours.Bind(Contours.Settings, _doc.Project.Sheet, canDownload: _zone is not null && _doc.Project.Frame is not null);
         Canvas.Invalidate();
-        ScheduleSave();
         Show(InfoBarSeverity.Success, "Contours converted", $"{lines.Count} contour lines added as map objects.");
     }
 
@@ -684,63 +1063,296 @@ public sealed partial class MapView : UserControl
     {
         var p = e.GetCurrentPoint(Canvas);
         if (p.PointerDeviceType == PointerDeviceType.Touch) return;   // touch goes through manipulation
+        Focus(FocusState.Pointer);
         bool left = p.Properties.IsLeftButtonPressed || p.PointerDeviceType == PointerDeviceType.Pen;
-        if (left || p.Properties.IsMiddleButtonPressed)
+        bool middle = p.Properties.IsMiddleButtonPressed;
+        bool space = (InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Space) & Windows.UI.Core.CoreVirtualKeyStates.Down) != 0;
+        bool shift = (e.KeyModifiers & VirtualKeyModifiers.Shift) != 0;
+        if (!left && !middle) return;
+        _dragLast = _dragStart = p.Position;
+        _dragPointer = p.PointerId;
+        _dragMoved = false;
+        _dragControl = null;
+        var m = _view.Unproject(p.Position.X, p.Position.Y);
+        Canvas.CapturePointer(e.Pointer);
+        if (middle || space || _doc is null || IsSelectingArea || _tool == Tool.Navigate && !CourseEditing) { _drag = Drag.Pan; return; }
+
+        if (CourseEditing)
         {
-            _dragLast = p.Position;
-            _dragPointer = p.PointerId;
-            _dragMoved = false;
-            _dragControl = left && CourseEditing ? ControlAt(p.Position)?.Id : null;
-            Canvas.CapturePointer(e.Pointer);
-            Focus(FocusState.Pointer);
+            // The Courses panel is open: clicks and drags handle controls, the rest pans (as before M2 UI).
+            _dragControl = ControlAt(p.Position)?.Id;
+            _drag = _dragControl is not null ? Drag.MoveControl : Drag.Pan;
+            return;
         }
+
+        switch (_tool)
+        {
+            case Tool.Select:
+            {
+                var hit = FeatureAt(m);
+                if (hit is null) { if (!shift) _selected.Clear(); _drag = Drag.Box; _shapeStart = m; _shapeEnd = m; }
+                else
+                {
+                    if (shift) { if (!_selected.Add(hit.Id)) _selected.Remove(hit.Id); }
+                    else if (!_selected.Contains(hit.Id)) { _selected.Clear(); _selected.Add(hit.Id); }
+                    _drag = Drag.MoveFeatures;
+                    _dragBefore = Snapshot();
+                }
+                break;
+            }
+            case Tool.Node:
+            {
+                Feature? f = _selected.Count == 1 ? _doc.Features.FirstOrDefault(x => x.Id == _selected.First()) : null;
+                if (f is not null && _activeNode is { } active && active < f.AllNodes().Count)
+                {
+                    var node = f.AllNodes()[active];
+                    double htol = 6 / _view.PixelsPerMeter;
+                    if (node.InHandle is { } hin && hin.DistanceTo(m) <= htol) { _drag = Drag.MoveHandleIn; _dragBefore = Snapshot(); break; }
+                    if (node.OutHandle is { } hout && hout.DistanceTo(m) <= htol) { _drag = Drag.MoveHandleOut; _dragBefore = Snapshot(); break; }
+                }
+                if (f is not null && NodeAt(f, m) is { } ni) { _activeNode = ni; _drag = Drag.MoveNode; _dragBefore = Snapshot(); break; }
+                if (f is not null && f.DistanceTo(m, 1 / _view.PixelsPerMeter) <= 7 / _view.PixelsPerMeter && f.NearestPathPosition(m) is { } near)
+                {
+                    // Click on a segment: insert a point there and start dragging it.
+                    _dragBefore = Snapshot();
+                    _activeNode = f.InsertNode(near.Position);
+                    _drag = _activeNode is null ? Drag.None : Drag.MoveNode;
+                    break;
+                }
+                var hit = FeatureAt(m);
+                _selected.Clear();
+                _activeNode = null;
+                if (hit is not null) _selected.Add(hit.Id);
+                _drag = Drag.None;
+                break;
+            }
+            case Tool.Pen:
+                _drag = Drag.None;
+                break;
+            case Tool.Freehand:
+            case Tool.Sketch:
+                _freehand.Clear();
+                _freehand.Add(m);
+                _drag = _tool == Tool.Sketch ? Drag.Sketch : Drag.Freehand;
+                break;
+            case Tool.Rectangle:
+            case Tool.Ellipse:
+                _shapeStart = _shapeEnd = m;
+                _drag = Drag.Shape;
+                break;
+            case Tool.Point:
+            case Tool.Eraser:
+                _drag = Drag.None;
+                break;
+        }
+        SyncToolButtons();
+        Canvas.Invalidate();
     }
 
     private void Canvas_PointerMoved(object sender, PointerRoutedEventArgs e)
     {
         var p = e.GetCurrentPoint(Canvas);
+        var m = _view.Unproject(p.Position.X, p.Position.Y);
+        if (_tool == Tool.Pen && _draft.Count > 0) { _cursor = m; Canvas.Invalidate(); }
         if (_dragLast is not { } last || p.PointerId != _dragPointer) return;
         double dx = p.Position.X - last.X, dy = p.Position.Y - last.Y;
-        if (!_dragMoved && Math.Abs(dx) < 2 && Math.Abs(dy) < 2) return;
+        if (!_dragMoved && _dragStart is { } start && Math.Abs(p.Position.X - start.X) < 3 && Math.Abs(p.Position.Y - start.Y) < 3 && _drag is not (Drag.Freehand or Drag.Sketch)) return;
         _dragMoved = true;
-        if (_dragControl is { } id && _doc?.Courses.Control(id) is { } c)
+        var dm = new Point2D(dx / _view.PixelsPerMeter, -dy / _view.PixelsPerMeter);
+        switch (_drag)
         {
-            c.Position = _view.Unproject(p.Position.X, p.Position.Y);
-            RebuildOverprint();
+            case Drag.Pan:
+                _view.PanByPixels(dx, dy);
+                break;
+            case Drag.MoveControl:
+                if (_dragControl is { } id && _doc?.Courses.Control(id) is { } c) { c.Position = m; RebuildOverprint(); }
+                break;
+            case Drag.MoveFeatures:
+                if (_doc is not null)
+                    for (int i = 0; i < _doc.Features.Count; i++)
+                        if (_selected.Contains(_doc.Features[i].Id)) _doc.Features[i] = _doc.Features[i].MovedBy(dm);
+                RebuildSceneLive();
+                break;
+            case Drag.MoveNode:
+                if (SelectedFeature() is { } f && _activeNode is { } ni)
+                {
+                    var all = f.AllNodes();
+                    all[ni] = all[ni].MovedBy(dm);
+                    f.SetAllNodes(all);
+                    RebuildSceneLive();
+                }
+                break;
+            case Drag.MoveHandleIn:
+            case Drag.MoveHandleOut:
+                if (SelectedFeature() is { } g && _activeNode is { } hi)
+                {
+                    g.MoveHandle(hi, _drag == Drag.MoveHandleIn, m);
+                    RebuildSceneLive();
+                }
+                break;
+            case Drag.Box:
+            case Drag.Shape:
+                _shapeEnd = m;
+                break;
+            case Drag.Freehand:
+            case Drag.Sketch:
+                if (_freehand.Count == 0 || _freehand[^1].DistanceTo(m) > 1.5 / _view.PixelsPerMeter) _freehand.Add(m);
+                break;
         }
-        else _view.PanByPixels(dx, dy);
         _dragLast = p.Position;
         Canvas.Invalidate();
+    }
+
+    private Feature? SelectedFeature() => _doc is not null && _selected.Count == 1 ? _doc.Features.FirstOrDefault(x => x.Id == _selected.First()) : null;
+
+    /// <summary>During a drag the scene is rebuilt without an undo step; <see cref="Record"/> runs once at the end.</summary>
+    private void RebuildSceneLive()
+    {
+        if (_doc is null) return;
+        _scene = MapScene.Build(_doc.Features, _doc.Strokes, _doc.Project.Sheet, _doc.Project.AreaOpacityValue);
+        _renderer.InvalidateCache();
     }
 
     private void Canvas_PointerReleased(object sender, PointerRoutedEventArgs e)
     {
         if (e.Pointer.PointerId != _dragPointer) return;
         var p = e.GetCurrentPoint(Canvas);
-        if (CourseEditing && _doc is not null)
+        var m = _view.Unproject(p.Position.X, p.Position.Y);
+        var drag = _drag;
+        _drag = Drag.None;
+        _dragLast = null;
+        _dragPointer = null;
+        Canvas.ReleasePointerCapture(e.Pointer);
+        if (_doc is null) return;
+
+        if (drag == Drag.Pan && IsSelectingArea && _dragMoved) FrameFollowsView();
+
+        if (CourseEditing)
         {
             if (_dragControl is { } id)
             {
                 if (_dragMoved) { Courses.Refresh(); ScheduleSave(); }
                 else if (_doc.Courses.Control(id) is { } c)
                 {
-                    // Click on an existing control: select it; with a course chosen, add it to that course.
                     if (Courses.SelectedCourse is { } course && !course.ControlIds.Contains(c.Id)) { AddToCourse(course, c); Courses.Refresh(); ScheduleSave(); }
                     Courses.SelectControl(c.Id);
                     RebuildOverprint();
                 }
             }
-            else if (!_dragMoved && Courses.PlaceKind is { } kind && (_dragLast is not null))
-            {
-                PlaceControl(kind, _view.Unproject(p.Position.X, p.Position.Y));
-            }
+            else if (!_dragMoved && Courses.PlaceKind is { } kind) PlaceControl(kind, m);
             else if (!_dragMoved) Courses.SelectControl(null);
+            _dragControl = null;
             Canvas.Invalidate();
+            return;
         }
-        _dragLast = null;
-        _dragPointer = null;
-        _dragControl = null;
-        Canvas.ReleasePointerCapture(e.Pointer);
+
+        switch (drag)
+        {
+            case Drag.MoveFeatures:
+            case Drag.MoveNode:
+            case Drag.MoveHandleIn:
+            case Drag.MoveHandleOut:
+                if (_dragMoved && _dragBefore is { } before) Record(drag == Drag.MoveFeatures ? "Move" : "Edit point", before);
+                else if (drag == Drag.MoveNode && _dragBefore is { } b2 && SelectedFeature() is { } sf && b2.Features.FirstOrDefault(x => x.Id == sf.Id) is { } old && sf.AllNodes().Count != old.AllNodes().Count) Record("Insert point", b2);
+                _dragBefore = null;
+                break;
+            case Drag.Box:
+                if (_shapeStart is { } a && _shapeEnd is { } b && _dragMoved)
+                {
+                    var box = new Rect2D(Math.Min(a.X, b.X), Math.Min(a.Y, b.Y), Math.Max(a.X, b.X), Math.Max(a.Y, b.Y));
+                    foreach (var f in _doc.Features.Where(f => f.IsVisible && f.Bounds is { } fb && box.Contains(fb))) _selected.Add(f.Id);
+                }
+                _shapeStart = _shapeEnd = null;
+                break;
+            case Drag.Shape:
+                if (_shapeStart is { } s0 && _shapeEnd is { } s1 && _dragMoved && s0.DistanceTo(s1) > 2 / _view.PixelsPerMeter)
+                {
+                    var corners = new[] { new Point2D(Math.Min(s0.X, s1.X), Math.Max(s0.Y, s1.Y)), new Point2D(Math.Max(s0.X, s1.X), Math.Max(s0.Y, s1.Y)),
+                                          new Point2D(Math.Max(s0.X, s1.X), Math.Min(s0.Y, s1.Y)), new Point2D(Math.Min(s0.X, s1.X), Math.Min(s0.Y, s1.Y)) };
+                    var sym = Symbols.ActiveSymbol;
+                    var color = sym?.ColorHex ?? "#C8C8C8";
+                    var f = _tool == Tool.Ellipse ? FeatureEdit.Ellipse(corners, color, sym?.DrawingWidthMM ?? 0.1) : FeatureEdit.Rectangle(corners, color, sym?.DrawingWidthMM ?? 0.1);
+                    if (sym is { SymbolKind: MapSymbol.Kind.Area }) { f.SymbolCode = sym.Code; f.SymbolName = sym.Name; }
+                    AddFeature(f);
+                }
+                _shapeStart = _shapeEnd = null;
+                break;
+            case Drag.Freehand:
+            {
+                var pts = PolylineSimplify.Simplify(_freehand, 1.5 / _view.PixelsPerMeter);
+                _freehand.Clear();
+                if (pts.Count >= 2)
+                {
+                    bool closes = pts.Count >= 3 && pts[0].DistanceTo(pts[^1]) < 12 / _view.PixelsPerMeter;
+                    if (closes) pts = pts.Take(pts.Count - 1).ToList();
+                    AddFeature(MakeVector(pts.Select(q => new BezierNode(q)).ToList(), forceLine: pts.Count < 3 || (!closes && ActiveKind != MapSymbol.Kind.Area)));
+                }
+                break;
+            }
+            case Drag.Sketch:
+            {
+                var pts = PolylineSimplify.Simplify(_freehand, 0.5 / _view.PixelsPerMeter);
+                _freehand.Clear();
+                if (pts.Count >= 1) Commit("Sketch", () => _doc.Strokes.Add(new Stroke { ColorHex = SketchColor, WidthMM = SketchWidthMM, Points = pts }));
+                break;
+            }
+            case Drag.None when !_dragMoved:
+                Click(m);
+                break;
+        }
+        SyncToolButtons();
+        Canvas.Invalidate();
+    }
+
+    /// <summary>A click (no drag) with the current tool.</summary>
+    private void Click(Point2D m)
+    {
+        if (_doc is null) return;
+        switch (_tool)
+        {
+            case Tool.Pen:
+                if (_draft.Count > 0 && _draft[^1].DistanceTo(m) < 2 / _view.PixelsPerMeter) return;
+                _draft.Add(m);
+                _cursor = m;
+                break;
+            case Tool.Point:
+            {
+                if (Symbols.ActiveSymbol is not { SymbolKind: MapSymbol.Kind.Point } s)
+                {
+                    Show(InfoBarSeverity.Informational, "Point symbol", "Select a point symbol in the Symbols panel first (e.g. 204.0 Boulder).");
+                    SymbolsToggle.IsChecked = true; UpdatePanels();
+                    return;
+                }
+                if (SymbolFeatures.Point(s, m, Symbols.SizeFactor) is { } f) AddFeature(f);
+                break;
+            }
+            case Tool.Eraser:
+            {
+                double tol = 8 / _view.PixelsPerMeter;
+                var hit = _doc.Strokes.Select(s => (Stroke: s, D: s.DistanceTo(m))).Where(x => x.D <= tol + x.Stroke.WidthMM * MetersPerMM).OrderBy(x => x.D).FirstOrDefault().Stroke;
+                if (hit is not null) Commit("Erase stroke", () => _doc.Strokes.Remove(hit));
+                break;
+            }
+        }
+    }
+
+    private void Canvas_DoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
+    {
+        if (_tool != Tool.Pen || _draft.Count == 0) return;
+        // The double-click's two clicks added one point twice: drop the duplicate, then finish.
+        if (_draft.Count >= 2 && _draft[^1].DistanceTo(_draft[^2]) < 4 / _view.PixelsPerMeter) _draft.RemoveAt(_draft.Count - 1);
+        FinishDraft();
+        e.Handled = true;
+    }
+
+    private void Canvas_RightTapped(object sender, RightTappedRoutedEventArgs e)
+    {
+        if (_doc is null || IsSelectingArea) { e.Handled = true; return; }
+        var pos = e.GetPosition(Canvas);
+        var m = _view.Unproject(pos.X, pos.Y);
+        var hit = FeatureAt(m);
+        if (hit is not null && !_selected.Contains(hit.Id)) { _selected.Clear(); _selected.Add(hit.Id); SyncToolButtons(); Canvas.Invalidate(); }
+        if (_selected.Count == 0) e.Handled = true;   // nothing to act on: no menu
     }
 
     private void Canvas_PointerWheelChanged(object sender, PointerRoutedEventArgs e)
@@ -754,14 +1366,9 @@ public sealed partial class MapView : UserControl
             var (min, max) = ZoomRange;
             _view.ZoomAt(p.Position.X, p.Position.Y, Math.Pow(1.0015, delta), min, max);
         }
-        else if (shift || p.Properties.IsHorizontalMouseWheel)
-        {
-            _view.PanByPixels(delta * 0.5, 0);
-        }
-        else
-        {
-            _view.PanByPixels(0, delta * 0.5);
-        }
+        else if (shift || p.Properties.IsHorizontalMouseWheel) _view.PanByPixels(delta * 0.5, 0);
+        else _view.PanByPixels(0, delta * 0.5);
+        if (IsSelectingArea) FrameFollowsView();
         e.Handled = true;
         Canvas.Invalidate();
     }
@@ -775,6 +1382,7 @@ public sealed partial class MapView : UserControl
             var (min, max) = ZoomRange;
             _view.ZoomAt(e.Position.X, e.Position.Y, e.Delta.Scale, min, max);
         }
+        if (IsSelectingArea) FrameFollowsView();
         Canvas.Invalidate();
     }
 
@@ -795,11 +1403,13 @@ public sealed partial class MapView : UserControl
     private void Opacity_ValueChanged(object sender, RangeBaseValueChangedEventArgs e)
     {
         _basemapOpacity = e.NewValue / 100;
+        if (_doc is not null && Math.Abs(_doc.Project.BasemapOpacityValue - _basemapOpacity) > 1e-6) { _doc.Project.BasemapOpacity = _basemapOpacity; ScheduleSave(); }
         Canvas.Invalidate();
     }
 
     private void Back_Click(object sender, RoutedEventArgs e)
     {
+        if (_tool == Tool.Pen) FinishDraft();
         _saveTimer?.Stop();
         SaveNow();
         BackRequested?.Invoke(this, EventArgs.Empty);
@@ -809,7 +1419,7 @@ public sealed partial class MapView : UserControl
     private async void Export_Click(object sender, RoutedEventArgs e)
     {
         if (_doc is null || _scene is null) return;
-        if (_doc.Project.Frame is not { } frame || _doc.Project.Zone is not { } zone)
+        if (_doc.Project.Frame is not { } frame || _doc.Project.Zone is not { } zone || IsSelectingArea)
         {
             Show(InfoBarSeverity.Warning, "No map area", "Lock a map area (frame and UTM zone) before exporting.");
             return;

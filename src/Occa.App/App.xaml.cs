@@ -19,7 +19,24 @@ public partial class App : Application
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
-        _window = new MainWindow();
-        _window.Activate();
+        var window = new MainWindow();
+        _window = window;
+        window.Activate();
+        // FR-W8: a .occa / .occafield / .occasym double-clicked in Explorer. MSIX: file activation; MSI: the path on the command line.
+        var path = ActivatedFilePath();
+        if (path is not null) _ = window.DispatcherQueue.TryEnqueue(async () => await window.OpenFileFromActivationAsync(path));
+    }
+
+    private static string? ActivatedFilePath()
+    {
+        try
+        {
+            var activation = Microsoft.Windows.AppLifecycle.AppInstance.GetCurrent().GetActivatedEventArgs();
+            if (activation.Kind == Microsoft.Windows.AppLifecycle.ExtendedActivationKind.File && activation.Data is Windows.ApplicationModel.Activation.IFileActivatedEventArgs files)
+                return files.Files.OfType<Windows.Storage.IStorageFile>().FirstOrDefault()?.Path;
+        }
+        catch (Exception) { /* unpackaged (MSI) or no activation info */ }
+        var args = Environment.GetCommandLineArgs();
+        return args.Skip(1).FirstOrDefault(a => !a.StartsWith("-", StringComparison.Ordinal) && File.Exists(a));
     }
 }

@@ -29,8 +29,17 @@ public sealed partial class MainWindow : Window
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
         AppWindow.SetIcon("Assets/occa.ico");
-        // FR-W4: the main window needs at least 1100×760; start a little larger.
-        AppWindow.Resize(new Windows.Graphics.SizeInt32(1280, 820));
+        // FR-W4: the main window needs at least 1100×760; start a little larger, or where it was last time.
+        if (_settings is { WindowWidth: int w, WindowHeight: int h, WindowX: int x, WindowY: int y } && w >= 1100 && h >= 760)
+            AppWindow.MoveAndResize(new Windows.Graphics.RectInt32(x, y, w, h));
+        else AppWindow.Resize(new Windows.Graphics.SizeInt32(1280, 820));
+        AppWindow.Changed += (_, e) =>
+        {
+            if ((!e.DidSizeChange && !e.DidPositionChange) || AppWindow.Presenter is OverlappedPresenter { State: not OverlappedPresenterState.Restored }) return;
+            _settings.WindowX = AppWindow.Position.X; _settings.WindowY = AppWindow.Position.Y;
+            _settings.WindowWidth = AppWindow.Size.Width; _settings.WindowHeight = AppWindow.Size.Height;
+            ScheduleSettingsSave();
+        };
         if (AppWindow.Presenter is OverlappedPresenter presenter)
         {
             presenter.PreferredMinimumWidth = 1100;
@@ -55,6 +64,55 @@ public sealed partial class MainWindow : Window
 
     private readonly AppLicense _license = AppLicense.Shared;
     private UpdateChecker.Result? _update;
+    private Microsoft.UI.Dispatching.DispatcherQueueTimer? _settingsTimer;
+
+    /// <summary>Window bounds are saved a moment after the last move/resize.</summary>
+    private void ScheduleSettingsSave()
+    {
+        if (_settingsTimer is null)
+        {
+            _settingsTimer = DispatcherQueue.CreateTimer();
+            _settingsTimer.Interval = TimeSpan.FromMilliseconds(800);
+            _settingsTimer.IsRepeating = false;
+            _settingsTimer.Tick += (_, _) => { try { _settings.Save(); } catch (Exception) { } };
+        }
+        _settingsTimer.Stop();
+        _settingsTimer.Start();
+    }
+
+    /// <summary>Opens a project file handed over by Explorer (file association, FR-W8) or the command line (MSI install).</summary>
+    public async Task OpenFileFromActivationAsync(string path)
+    {
+        try
+        {
+            if (!File.Exists(path)) return;
+            await ImportAndOpenAsync(path);
+        }
+        catch (Exception ex)
+        {
+            ShowStatus(InfoBarSeverity.Error, "Cannot open project file", ex.Message);
+        }
+    }
+
+    /// <summary>New project (M2): dialog, then the map in Select Area mode.</summary>
+    private async void NewProject_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_license.Require(ProFeature.UnlimitedProjects, overLimit: _projects.Count >= FreeLimits.Projects)) return;
+        var dialog = new Views.NewProjectDialog(_settings) { XamlRoot = Content.XamlRoot, RequestedTheme = RootGrid.RequestedTheme };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+        var project = dialog.Build();
+        if (project is null) return;
+        try
+        {
+            var entry = await Task.Run(() => _repository.Create(new ProjectDocument { Project = project }));
+            LoadProjects();
+            await OpenProject(entry);
+        }
+        catch (Exception ex)
+        {
+            ShowStatus(InfoBarSeverity.Error, "Cannot create project", ex.Message);
+        }
+    }
 
     private async Task StartLicenseAsync()
     {
@@ -192,7 +250,19 @@ public sealed partial class MainWindow : Window
             foreach (var ext in Occa.Core.Import.MapFileImport.FileExtensions) picker.FileTypeFilter.Add("." + ext);
             var file = await picker.PickSingleFileAsync();
             if (file is null) return;
+            await ImportAndOpenAsync(file.Path);
+        }
+        catch (Exception ex)
+        {
+            // The picker itself can fail too (for example when OCCA runs elevated), so it is inside the try.
+            ShowStatus(InfoBarSeverity.Error, "Cannot open project file", ex.Message);
+        }
+    }
 
+    private async Task ImportAndOpenAsync(string filePath)
+    {
+        {
+            var file = new { Path = filePath };
             var bytes = await File.ReadAllBytesAsync(file.Path);
             var extension = Path.GetExtension(file.Path).TrimStart('.').ToLowerInvariant();
             ProjectRepository.Entry entry;
@@ -216,11 +286,6 @@ public sealed partial class MainWindow : Window
             LoadProjects();
             ShowStatus(InfoBarSeverity.Success, "Project imported", $"\"{entry.Project.Name}\" was added to your projects.");
             await OpenProject(entry);
-        }
-        catch (Exception ex)
-        {
-            // The picker itself can fail too (for example when OCCA runs elevated), so it is inside the try.
-            ShowStatus(InfoBarSeverity.Error, "Cannot open project file", ex.Message);
         }
     }
 
