@@ -1,6 +1,8 @@
+using System.Runtime.InteropServices.WindowsRuntime;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Imaging;
 using Occa.Core.Sheet;
 using Occa.Core.Vector;
 
@@ -10,18 +12,41 @@ namespace Occa.App.Views;
 public sealed class SymbolRow
 {
     public required MapSymbol Symbol { get; init; }
+    public required SheetSpec Sheet { get; init; }
     public string Code => Symbol.Code;
     public string Name => Symbol.Name;
-    public string Glyph => Symbol.SymbolKind switch { MapSymbol.Kind.Point => "", MapSymbol.Kind.Line => "", MapSymbol.Kind.Area => "", _ => "" };
-    public Brush Swatch => new SolidColorBrush(Occa.Render.MapRenderer.ToColor(Symbol.ColorHex));
-    public Brush Ink
+    /// <summary>The rendered sample (cached per symbol set and code).</summary>
+    public ImageSource? Preview => SymbolPreviews.Get(Symbol, Sheet);
+}
+
+/// <summary>
+/// Symbol samples rendered once with Win2D (<c>SymbolPreviewRenderer</c>) at 2× for crisp swatches, kept per symbol
+/// set and code for the life of the app (a few hundred small bitmaps at most).
+/// </summary>
+public static class SymbolPreviews
+{
+    private const int W = 64, H = 52;   // 2 × 32 × 26
+    private static readonly Dictionary<string, ImageSource?> Cache = new();
+
+    public static ImageSource? Get(MapSymbol symbol, SheetSpec sheet)
     {
-        get
+        var key = $"{sheet.MapStandard}|{symbol.Code}|{symbol.Number}";
+        if (Cache.TryGetValue(key, out var hit)) return hit;
+        ImageSource? image = null;
+        try
         {
-            var rgb = ColorHex.Rgb(Symbol.ColorHex) ?? (0, 0, 0);
-            double luma = 0.299 * rgb.R + 0.587 * rgb.G + 0.114 * rgb.B;
-            return new SolidColorBrush(luma > 0.6 ? Windows.UI.Color.FromArgb(255, 0x2B, 0x2A, 0x28) : Windows.UI.Color.FromArgb(255, 255, 255, 255));
+            var bytes = Occa.Render.SymbolPreviewRenderer.Render(symbol, sheet, W, H);
+            var bitmap = new WriteableBitmap(W, H);
+            using (var stream = bitmap.PixelBuffer.AsStream()) stream.Write(bytes, 0, bytes.Length);
+            bitmap.Invalidate();
+            image = bitmap;
         }
+        catch (Exception)
+        {
+            // No sample is better than a crash in the list; the row still shows code and name.
+        }
+        Cache[key] = image;
+        return image;
     }
 }
 
@@ -38,6 +63,7 @@ public sealed partial class SymbolPanel : UserControl
     public event EventHandler? CloseRequested;
 
     private List<MapSymbol> _all = new();
+    private SheetSpec _sheet = new();
     private bool _updating;
 
     public MapSymbol? ActiveSymbol { get; private set; }
@@ -51,6 +77,7 @@ public sealed partial class SymbolPanel : UserControl
 
     public void Bind(SheetSpec sheet)
     {
+        _sheet = sheet;
         var file = StandardSymbolSets.For(sheet.MapStandard);
         _all = file.Symbols.Where(s => s.IsEnabled && s.IsDrawable).OrderBy(s => s.Number).ToList();
         SetText.Text = $"{file.Name} · {_all.Count} symbols";
@@ -93,7 +120,7 @@ public sealed partial class SymbolPanel : UserControl
         var category = CategoryBox.SelectedItem is ComboBoxItem { Tag: SymbolCategory c } ? c : (SymbolCategory?)null;
         var rows = _all.Where(s => category is null || s.Category == category)
             .Where(s => query.Length == 0 || s.Code.StartsWith(query, StringComparison.OrdinalIgnoreCase) || s.Name.Contains(query, StringComparison.OrdinalIgnoreCase))
-            .Select(s => new SymbolRow { Symbol = s }).ToList();
+            .Select(s => new SymbolRow { Symbol = s, Sheet = _sheet }).ToList();
         SymbolList.ItemsSource = rows;
         SymbolList.SelectedIndex = ActiveSymbol is null ? -1 : rows.FindIndex(r => r.Symbol.Number == ActiveSymbol.Number);
         _updating = false;

@@ -5,7 +5,8 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:canvas="using:Microsoft.Graphics.Canvas.UI.Xaml"
     xmlns:views="using:Occa.App.Views"
-    Background="{ThemeResource CpPaper2}">
+    Background="{ThemeResource CpPaper2}"
+    KeyDown="Root_KeyDown">
 
     <UserControl.KeyboardAccelerators>
         <KeyboardAccelerator Key="Number0" Modifiers="Control" Invoked="FitAccelerator_Invoked" />
@@ -28,11 +29,35 @@
         </Style>
     </UserControl.Resources>
 
-    <Grid>
+    <!-- Background on the Grid, not the UserControl (which does not paint it): the map view covers the project list. -->
+    <Grid Background="{ThemeResource CpPaper2}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
+
+        <!-- Narrow windows (below 1500 effective px): the top-bar buttons keep their icons and tooltips, the labels go,
+             so the project name is never squeezed out. -->
+        <VisualStateManager.VisualStateGroups>
+            <VisualStateGroup x:Name="BarStates">
+                <VisualState x:Name="Compact">
+                    <VisualState.StateTriggers><AdaptiveTrigger MinWindowWidth="0" /></VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="BasemapLabel.Visibility" Value="Collapsed" />
+                        <Setter Target="SymbolsLabel.Visibility" Value="Collapsed" />
+                        <Setter Target="CoursesLabel.Visibility" Value="Collapsed" />
+                        <Setter Target="ContoursLabel.Visibility" Value="Collapsed" />
+                        <Setter Target="ExportLabel.Visibility" Value="Collapsed" />
+                        <Setter Target="BackLabel.Visibility" Value="Collapsed" />
+                        <Setter Target="OpacityLabel.Visibility" Value="Collapsed" />
+                        <Setter Target="OpacitySlider.Width" Value="72" />
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="Full">
+                    <VisualState.StateTriggers><AdaptiveTrigger MinWindowWidth="1500" /></VisualState.StateTriggers>
+                </VisualState>
+            </VisualStateGroup>
+        </VisualStateManager.VisualStateGroups>
 
         <!-- Top bar: back, project name, basemap controls, panels, export (the Mac top bar). -->
         <Grid Padding="12,8" ColumnSpacing="12" Background="{ThemeResource CpPaper2}" BorderBrush="{ThemeResource CpLine}" BorderThickness="0,0,0,1">
@@ -41,39 +66,39 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <Button Style="{StaticResource CpSecondaryButton}" Click="Back_Click" AutomationProperties.Name="Back to projects">
+            <Button Style="{StaticResource CpSecondaryButton}" Click="Back_Click" AutomationProperties.Name="Back to projects" ToolTipService.ToolTip="Back to the project list (saves the project)">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <FontIcon Glyph="&#xE72B;" FontSize="14" />
-                    <TextBlock Text="Projects" />
+                    <TextBlock x:Name="BackLabel" Text="Projects" />
                 </StackPanel>
             </Button>
-            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="0">
+            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="0" MinWidth="0">
                 <TextBlock x:Name="TitleText" FontSize="15" FontWeight="SemiBold" Foreground="{ThemeResource CpInk}" TextTrimming="CharacterEllipsis" />
-                <TextBlock x:Name="SummaryText" FontFamily="Consolas" FontSize="11" Foreground="{ThemeResource CpInkMuted}" />
+                <TextBlock x:Name="SummaryText" FontFamily="Consolas" FontSize="11" Foreground="{ThemeResource CpInkMuted}" TextTrimming="CharacterEllipsis" />
             </StackPanel>
             <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
                 <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                    <Button x:Name="UndoButton" Style="{StaticResource CpSecondaryButton}" Click="Undo_Click" ToolTipService.ToolTip="Undo (Ctrl+Z)" AutomationProperties.Name="Undo" IsEnabled="False">
+                    <Button x:Name="UndoButton" Style="{StaticResource CpSecondaryButton}" Padding="10,0" Click="Undo_Click" ToolTipService.ToolTip="Undo (Ctrl+Z)" AutomationProperties.Name="Undo" IsEnabled="False">
                         <FontIcon Glyph="&#xE7A7;" FontSize="14" />
                     </Button>
-                    <Button x:Name="RedoButton" Style="{StaticResource CpSecondaryButton}" Click="Redo_Click" ToolTipService.ToolTip="Redo (Ctrl+Y)" AutomationProperties.Name="Redo" IsEnabled="False">
+                    <Button x:Name="RedoButton" Style="{StaticResource CpSecondaryButton}" Padding="10,0" Click="Redo_Click" ToolTipService.ToolTip="Redo (Ctrl+Y)" AutomationProperties.Name="Redo" IsEnabled="False">
                         <FontIcon Glyph="&#xE7A6;" FontSize="14" />
                     </Button>
                 </StackPanel>
                 <ToggleButton x:Name="BasemapToggle" IsChecked="True" Click="Basemap_Click" ToolTipService.ToolTip="Satellite basemap (Esri World Imagery)" AutomationProperties.Name="Satellite basemap" MinHeight="36">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <FontIcon Glyph="&#xE774;" FontSize="14" />
-                        <TextBlock Text="Satellite" />
+                        <TextBlock x:Name="BasemapLabel" Text="Satellite" />
                     </StackPanel>
                 </ToggleButton>
                 <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                    <TextBlock Text="Opacity" FontSize="12" Foreground="{ThemeResource CpInkMuted}" VerticalAlignment="Center" />
-                    <Slider x:Name="OpacitySlider" Minimum="0" Maximum="100" Width="100" ValueChanged="Opacity_ValueChanged" AutomationProperties.Name="Basemap opacity" />
+                    <TextBlock x:Name="OpacityLabel" Text="Opacity" FontSize="12" Foreground="{ThemeResource CpInkMuted}" VerticalAlignment="Center" />
+                    <Slider x:Name="OpacitySlider" Minimum="0" Maximum="100" Width="100" ValueChanged="Opacity_ValueChanged" AutomationProperties.Name="Basemap opacity" ToolTipService.ToolTip="Basemap opacity" />
                 </StackPanel>
                 <ToggleButton x:Name="SymbolsToggle" Click="Panels_Click" ToolTipService.ToolTip="Symbols: the ISOM / ISSprOM set for drawing (Ctrl+J)" AutomationProperties.Name="Symbols" MinHeight="36">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <FontIcon Glyph="&#xE80A;" FontSize="14" />
-                        <TextBlock Text="Symbols" />
+                        <TextBlock x:Name="SymbolsLabel" Text="Symbols" />
                     </StackPanel>
                     <ToggleButton.KeyboardAccelerators>
                         <KeyboardAccelerator Key="J" Modifiers="Control" />
@@ -82,7 +107,7 @@
                 <ToggleButton x:Name="CoursesToggle" Click="Panels_Click" ToolTipService.ToolTip="Course planner: controls, courses, descriptions (Ctrl+K)" AutomationProperties.Name="Courses" MinHeight="36">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <FontIcon Glyph="&#xE7C1;" FontSize="14" />
-                        <TextBlock Text="Courses" />
+                        <TextBlock x:Name="CoursesLabel" Text="Courses" />
                     </StackPanel>
                     <ToggleButton.KeyboardAccelerators>
                         <KeyboardAccelerator Key="K" Modifiers="Control" />
@@ -91,19 +116,19 @@
                 <ToggleButton x:Name="ContoursToggle" Click="Panels_Click" ToolTipService.ToolTip="Contours from elevation data (Ctrl+H)" AutomationProperties.Name="Contours" MinHeight="36">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <FontIcon Glyph="&#xE909;" FontSize="14" />
-                        <TextBlock Text="Contours" />
+                        <TextBlock x:Name="ContoursLabel" Text="Contours" />
                     </StackPanel>
                     <ToggleButton.KeyboardAccelerators>
                         <KeyboardAccelerator Key="H" Modifiers="Control" />
                     </ToggleButton.KeyboardAccelerators>
                 </ToggleButton>
-                <Button Style="{StaticResource CpSecondaryButton}" Click="Fit_Click" ToolTipService.ToolTip="Zoom to the map area (Ctrl+0)" AutomationProperties.Name="Zoom to map area">
+                <Button Style="{StaticResource CpSecondaryButton}" Padding="10,0" Click="Fit_Click" ToolTipService.ToolTip="Zoom to the map area (Ctrl+0)" AutomationProperties.Name="Zoom to map area">
                     <FontIcon Glyph="&#xE9A6;" FontSize="14" />
                 </Button>
                 <Button x:Name="ExportButton" Style="{StaticResource CpPrimaryButton}" Click="Export_Click" ToolTipService.ToolTip="Export PDF, raster, OMAP or DXF (Ctrl+E)" AutomationProperties.Name="Export">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <FontIcon Glyph="&#xE898;" FontSize="14" />
-                        <TextBlock Text="Export" />
+                        <TextBlock x:Name="ExportLabel" Text="Export" />
                     </StackPanel>
                     <Button.KeyboardAccelerators>
                         <KeyboardAccelerator Key="E" Modifiers="Control" />
@@ -137,7 +162,7 @@
                 <Button x:Name="DeleteButton" Width="40" Height="40" Padding="0" CornerRadius="8" BorderThickness="0" Background="Transparent" Click="Delete_Click" ToolTipService.ToolTip="Delete the selection (Delete)" IsEnabled="False"><FontIcon Glyph="&#xE74D;" FontSize="16" /></Button>
             </StackPanel>
 
-            <Grid Grid.Column="1">
+            <Grid Grid.Column="1" ContextRequested="Canvas_ContextRequested">
                 <Grid.ContextFlyout>
                     <MenuFlyout x:Name="ObjectMenu">
                         <MenuFlyoutItem Text="Duplicate" Click="Duplicate_Click"><MenuFlyoutItem.Icon><FontIcon Glyph="&#xE8C8;" /></MenuFlyoutItem.Icon></MenuFlyoutItem>
@@ -151,7 +176,7 @@
                 <canvas:CanvasControl x:Name="Canvas" Draw="Canvas_Draw" CreateResources="Canvas_CreateResources" SizeChanged="Canvas_SizeChanged"
                                       PointerPressed="Canvas_PointerPressed" PointerMoved="Canvas_PointerMoved" PointerReleased="Canvas_PointerReleased"
                                       PointerCanceled="Canvas_PointerReleased" PointerCaptureLost="Canvas_PointerReleased" PointerWheelChanged="Canvas_PointerWheelChanged"
-                                      DoubleTapped="Canvas_DoubleTapped" RightTapped="Canvas_RightTapped" KeyDown="Canvas_KeyDown"
+                                      DoubleTapped="Canvas_DoubleTapped"
                                       ManipulationMode="TranslateX,TranslateY,Scale,TranslateInertia" ManipulationDelta="Canvas_ManipulationDelta"
                                       ClearColor="Transparent" UseSharedDevice="True" IsTabStop="True" />
                 <!-- Select Area mode (new project): the frame stays centred; pan the imagery under it, then lock. -->
@@ -169,11 +194,15 @@
                     </StackPanel>
                 </Border>
                 <!-- Esri attribution (required by the Location Platform terms) and the status line. -->
-                <Grid VerticalAlignment="Bottom" Padding="8,4" Background="#80FFFFFF" RequestedTheme="Light">
-                    <TextBlock x:Name="StatusText" FontFamily="Consolas" FontSize="11" Foreground="#2B2A28" VerticalAlignment="Center" />
-                    <TextBlock x:Name="AttributionText" FontSize="10" Foreground="#2B2A28" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                <Grid VerticalAlignment="Bottom" Padding="8,4" ColumnSpacing="16" Background="#B3FFFFFF" RequestedTheme="Light" IsHitTestVisible="False">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Name="StatusText" FontFamily="Consolas" FontSize="11" Foreground="#2B2A28" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Grid.Column="1" x:Name="AttributionText" FontSize="10" Foreground="#2B2A28" HorizontalAlignment="Right" VerticalAlignment="Center" />
                 </Grid>
-                <InfoBar x:Name="MapStatus" IsOpen="False" IsClosable="True" VerticalAlignment="Top" Margin="12,64,12,12" />
+                <InfoBar x:Name="MapStatus" IsOpen="False" IsClosable="True" VerticalAlignment="Top" Margin="12,76,12,12" MaxWidth="720" HorizontalAlignment="Center" />
             </Grid>
 
             <views:SymbolPanel x:Name="Symbols" Grid.Column="2" Visibility="Collapsed" />

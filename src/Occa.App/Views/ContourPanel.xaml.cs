@@ -25,6 +25,7 @@ public sealed partial class ContourPanel : UserControl
     // True until Bind(): XAML raises ValueChanged while the controls are still being created (a slider's Minimum coerces its
     // Value), and the handler must not touch sibling controls then.
     private bool _updating = true;
+    private bool _canDownload;
 
     public ContourSettings Settings => _settings;
 
@@ -47,6 +48,7 @@ public sealed partial class ContourPanel : UserControl
         OpacitySlider.Value = settings.Opacity * 100;
         FormLinesCheck.IsChecked = settings.ShowFormLines;
         ExportCheck.IsChecked = settings.IncludeInExport;
+        _canDownload = canDownload;
         DownloadButton.IsEnabled = canDownload;
         HintText.Text = ContourSettings.IntervalHint(settings.IntervalM, sheet.MapStandard) ?? "";
         _updating = false;
@@ -85,7 +87,7 @@ public sealed partial class ContourPanel : UserControl
         Progress.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
         BusyText.Visibility = busy && text is not null ? Visibility.Visible : Visibility.Collapsed;
         BusyText.Text = text ?? "";
-        DownloadButton.IsEnabled = !busy;
+        DownloadButton.IsEnabled = !busy && _canDownload;
     }
 
     private void Settings_Changed(object sender, object e)

@@ -138,6 +138,41 @@ Needs the HRIS back office with the Windows platform (see `licensing-windows.md`
 6. Double-click a `.occa` in Explorer (MSIX and MSI installs): OCCA starts and imports/opens it. The window reopens at its
    last position and size.
 
+## C7. Styling and layout checks (beta audit, 24 Nov 2026)
+
+Check each screen in Light, Dark and System appearance (the sun / moon button bottom-right) and at two window
+widths: maximised and the narrowest the window allows (about 1000 px).
+
+1. **Front page**: caption buttons (minimise / maximise / close) have no light box in Dark mode; the plan chip next to
+   the name changes colour with the theme (sand Starter, butter Trial, sage Professional, rose Lifetime, sky
+   Organization) and follows an Appearance change at once. Project cards: the preview is clipped to the rounded
+   corners, the preview updates after editing (no stale thumbnail), long names and summaries end with "…". The
+   M0 "test tile" globe button is gone.
+2. **Window**: on a 1366×768 laptop the window opens inside the work area (not under the taskbar) and can be made small
+   enough to fit; the saved position is ignored when that monitor is gone. Closing the window while editing keeps the
+   last edit (reopen: the object is there).
+3. **License dialog**: fits a 768 px tall screen (the content scrolls, the Close button stays visible); the plan tiles
+   and badge match the dialog theme when the app is Dark on a Light system (and the reverse); the current plan tile has a
+   sage outline; Starter texts mention contours, map import and raster/vector export (what Windows actually gates).
+4. **Select Area**: the top bar at the narrowest width shows icon-only buttons with tooltips and the project name is
+   still readable; the "Select the map area" bar does not overlap the info bar (messages appear below it); the status
+   line and the Esri attribution never overlap (the status text trims first).
+5. **Drawing**: after clicking a tool button, the tool letters (H V A P F M L T N E), Esc, Enter and Delete work at once
+   without clicking the map first. While typing in a panel field (course name, lat/lon), Ctrl+Z / Ctrl+A / Ctrl+D edit
+   the text, not the map, and letters do not switch tools.
+6. **Panels**: Symbols, Courses and Contours open one at a time at 360 px; with the Courses panel open the tool rail
+   dims and the status line says "course planning"; closing it re-enables the rail. Contours: "Download terrain" stays
+   disabled for a project without a map area, also after a DEM load finishes.
+7. **Course planner**: placing Start / Control / Finish, dragging a control, the blue selection ring, descriptions and
+   print layout fields; the overprint is purple at 90 % on screen and solid in the PDF.
+8. **Imagery** (fixes for the 23 Nov screenshots): a new project shows satellite imagery under the A4 frame within a few
+   seconds; zooming out or in never leaves blank paper (the previous level's tiles are scaled until the new ones arrive;
+   beyond level 19 the level-19 tiles are enlarged); a tile that failed (offline moment) appears once the network is back.
+   No "Open file / New project / Search projects" ghosts show through the side panels. Right-click in Select Area mode
+   shows no menu; the side panels close when a new project opens in Select Area mode.
+9. **Symbols panel**: every row shows the symbol as it prints on light paper (line with its dashes / tags, area with
+   its pattern, point symbol shape), also in Dark mode; ISOM (1:10000) and ISSprOM (1:4000) sets differ.
+
 ## D. Logs and failures
 
 - The CI run's *Core tests* job uploads `test-results/core.trx` (open in Visual Studio or any TRX viewer).
