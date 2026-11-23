@@ -116,6 +116,28 @@ Needs the HRIS back office with the Windows platform (see `licensing-windows.md`
 7. Updates: with a newer published Windows release in HRIS Versions, the project list shows "Update available" with the
    release notes; **Download** opens the HRIS installer link (MSI install) or the Store page (MSIX install).
 
+## C6. What to check for the beta (M6: drawing, new project, file association)
+
+1. **New project** (Ctrl+N): name, scale (Starter: 1:4000 / 1:10000), orientation, start location. The map opens in
+   Select Area mode: a dimmed outside and the A4 frame at the centre; dragging the imagery moves the frame, "lat, lon · Go"
+   jumps, the UTM zone in the status line follows the location. **Lock area** fixes it, opens the Symbols panel and
+   selects the Pen tool.
+2. **Symbols** (Ctrl+J): search "506" or "path", pick a line symbol → Pen tool; click points on the map, double-click or
+   Enter finishes; Esc cancels. Pick an area symbol (e.g. 406 Vegetation) → Pen draws a closed area; Rectangle (M) and
+   Ellipse (L) drag areas; Freehand (F) drags a line (or area when it closes); pick a point symbol (204 Boulder) → Point
+   (T) places it. Sketch pencil (N) draws black strokes; Eraser (E) removes a stroke.
+3. **Move Tool** (V): click selects (Shift adds), drag moves, drag on empty space is a selection box; Delete removes;
+   Ctrl+D duplicates 2 mm offset; right-click: Duplicate, Change symbol to the active one, Reverse, Close line, Delete.
+   **Node Tool** (A): drag points; drag bezier handles of the active point; click a segment to insert a point; Delete
+   removes the active point.
+4. Ctrl+Z / Ctrl+Y undo and redo every step; Ctrl+S saves now (the package saves itself 0.6 s after each edit anyway). Back to
+   Projects: the card preview shows the drawing.
+5. Open the same project on the Mac (`%LOCALAPPDATA%\OCCA\Projects\<id>.cakra` zipped as `.occa`, or Export → nothing
+   needed: copy the folder) — the objects, symbols and widths must match. Round trip: a Mac project edited on Windows and
+   reopened on the Mac keeps every field.
+6. Double-click a `.occa` in Explorer (MSIX and MSI installs): OCCA starts and imports/opens it. The window reopens at its
+   last position and size.
+
 ## D. Logs and failures
 
 - The CI run's *Core tests* job uploads `test-results/core.trx` (open in Visual Studio or any TRX viewer).

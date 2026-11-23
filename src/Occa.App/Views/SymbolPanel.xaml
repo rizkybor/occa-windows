@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="Occa.App.Views.SymbolPanel"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:Occa.App.Views"
+    Width="360"
+    Background="{ThemeResource CpPaper2}"
+    BorderBrush="{ThemeResource CpLine}"
+    BorderThickness="1,0,0,0">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Grid Padding="12,10" BorderBrush="{ThemeResource CpLine}" BorderThickness="0,0,0,1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+                <TextBlock Text="Symbols" FontSize="15" FontWeight="SemiBold" Foreground="{ThemeResource CpInk}" />
+                <TextBlock x:Name="SetText" FontSize="11" Foreground="{ThemeResource CpInkMuted}" />
+            </StackPanel>
+            <Button Grid.Column="1" Click="Close_Click" Background="Transparent" BorderThickness="0" Padding="6" AutomationProperties.Name="Close symbols panel">
+                <FontIcon Glyph="&#xE711;" FontSize="12" />
+            </Button>
+        </Grid>
+
+        <StackPanel Grid.Row="1" Padding="12,8" Spacing="8">
+            <AutoSuggestBox x:Name="SearchBox" PlaceholderText="Search code or name (e.g. 506, path)" QueryIcon="Find" TextChanged="SearchBox_TextChanged" />
+            <ComboBox x:Name="CategoryBox" HorizontalAlignment="Stretch" SelectionChanged="CategoryBox_SelectionChanged" />
+        </StackPanel>
+
+        <ListView Grid.Row="2" x:Name="SymbolList" SelectionMode="Single" SelectionChanged="SymbolList_SelectionChanged" Padding="4,0">
+            <ListView.ItemTemplate>
+                <DataTemplate x:DataType="local:SymbolRow">
+                    <Grid ColumnSpacing="10" Padding="0,5">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="26" />
+                            <ColumnDefinition Width="54" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Border Width="22" Height="22" CornerRadius="5" Background="{x:Bind Swatch}" BorderBrush="{ThemeResource CpLine}" BorderThickness="1" VerticalAlignment="Center">
+                            <FontIcon Glyph="{x:Bind Glyph}" FontSize="11" Foreground="{x:Bind Ink}" />
+                        </Border>
+                        <TextBlock Grid.Column="1" Text="{x:Bind Code}" FontFamily="Consolas" FontSize="12" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="2" Text="{x:Bind Name}" FontSize="13" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                    </Grid>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
+
+        <StackPanel Grid.Row="3" Padding="12,8,12,12" Spacing="8" BorderBrush="{ThemeResource CpLine}" BorderThickness="0,1,0,0">
+            <TextBlock x:Name="ActiveText" FontSize="12" Foreground="{ThemeResource CpInk}" TextWrapping="Wrap" Text="Choose a symbol, then draw with the Pen, Freehand, Rectangle, Ellipse or Point tool." />
+            <Grid ColumnSpacing="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <NumberBox x:Name="SizeBox" Header="Symbol size (%)" Minimum="50" Maximum="300" Value="100" SmallChange="10" SpinButtonPlacementMode="Compact" ValueChanged="SizeBox_ValueChanged" />
+                <Button Grid.Column="1" x:Name="ApplyButton" Content="Apply to selection" VerticalAlignment="Bottom" Click="Apply_Click" ToolTipService.ToolTip="Change the selected object's symbol to the chosen one" IsEnabled="False" />
+            </Grid>
+        </StackPanel>
+    </Grid>
+</UserControl>
