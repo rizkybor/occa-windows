@@ -380,7 +380,7 @@ public sealed partial class MapView : UserControl
         Contours.Visibility = ContoursToggle.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
         if (Courses.Visibility != Visibility.Visible) Courses.ClearPlacement();
         // With the Courses panel open, clicks on the map place / move controls; the drawing tools pause.
-        ToolRail.IsEnabled = !CourseEditing;
+        foreach (var child in ToolRail.Children.OfType<Control>()) child.IsEnabled = !CourseEditing;   // a StackPanel has no IsEnabled
         ToolRail.Opacity = CourseEditing ? 0.5 : 1;
         if (!CourseEditing) Canvas.Focus(FocusState.Programmatic);
         Canvas.Invalidate();
