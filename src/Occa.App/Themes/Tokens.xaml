@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Design tokens ported from CakraPencil/DesignSystem/Tokens.swift (CP.*): pastel for chrome, strong for text/icons.
+     UI colours are never used as pen colours or map symbol colours. -->
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Light">
+            <Color x:Key="CpPaperColor">#FAF7F2</Color>
+            <SolidColorBrush x:Key="CpPaper" Color="#FAF7F2" />
+            <Color x:Key="CpPaper2Color">#F2EDE4</Color>
+            <SolidColorBrush x:Key="CpPaper2" Color="#F2EDE4" />
+            <Color x:Key="CpLineColor">#E3DDD2</Color>
+            <SolidColorBrush x:Key="CpLine" Color="#E3DDD2" />
+            <Color x:Key="CpInkColor">#2B2A28</Color>
+            <SolidColorBrush x:Key="CpInk" Color="#2B2A28" />
+            <Color x:Key="CpInkMutedColor">#6B665E</Color>
+            <SolidColorBrush x:Key="CpInkMuted" Color="#6B665E" />
+            <Color x:Key="CpSageFillColor">#D5E8D4</Color>
+            <SolidColorBrush x:Key="CpSageFill" Color="#D5E8D4" />
+            <Color x:Key="CpSageStrongColor">#3F6B4A</Color>
+            <SolidColorBrush x:Key="CpSageStrong" Color="#3F6B4A" />
+            <Color x:Key="CpSandFillColor">#EFE8DA</Color>
+            <SolidColorBrush x:Key="CpSandFill" Color="#EFE8DA" />
+            <Color x:Key="CpSandStrongColor">#5A5348</Color>
+            <SolidColorBrush x:Key="CpSandStrong" Color="#5A5348" />
+            <Color x:Key="CpRoseFillColor">#F5D0D3</Color>
+            <SolidColorBrush x:Key="CpRoseFill" Color="#F5D0D3" />
+            <Color x:Key="CpRoseStrongColor">#933340</Color>
+            <SolidColorBrush x:Key="CpRoseStrong" Color="#933340" />
+            <Color x:Key="CpSkyFillColor">#D6E6F5</Color>
+            <SolidColorBrush x:Key="CpSkyFill" Color="#D6E6F5" />
+            <Color x:Key="CpSkyStrongColor">#315E85</Color>
+            <SolidColorBrush x:Key="CpSkyStrong" Color="#315E85" />
+            <Color x:Key="CpButterFillColor">#F7EBC0</Color>
+            <SolidColorBrush x:Key="CpButterFill" Color="#F7EBC0" />
+            <Color x:Key="CpButterStrongColor">#735810</Color>
+            <SolidColorBrush x:Key="CpButterStrong" Color="#735810" />
+            <Color x:Key="CpSplashContourColor">#B58A52</Color>
+            <SolidColorBrush x:Key="CpSplashContour" Color="#B58A52" />
+            <Color x:Key="CpSplashTitleColor">#1E201F</Color>
+            <SolidColorBrush x:Key="CpSplashTitle" Color="#1E201F" />
+            <Color x:Key="CpSplashMutedColor">#8A847A</Color>
+            <SolidColorBrush x:Key="CpSplashMuted" Color="#8A847A" />
+            <SolidColorBrush x:Key="CpSageBorder" Color="#3F6B4A" Opacity="0.4" />
+            <SolidColorBrush x:Key="CpSandBorder" Color="#5A5348" Opacity="0.18" />
+            <x:Double x:Key="CpSplashContourOpacity">0.26</x:Double>
+            <x:Double x:Key="CpSplashTaglineOpacity">1</x:Double>
+            <BitmapImage x:Key="JcdLogoImage" UriSource="ms-appx:///Assets/JCDLogo-color.png" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Default">
+            <Color x:Key="CpPaperColor">#1E1D1B</Color>
+            <SolidColorBrush x:Key="CpPaper" Color="#1E1D1B" />
+            <Color x:Key="CpPaper2Color">#282623</Color>
+            <SolidColorBrush x:Key="CpPaper2" Color="#282623" />
+            <Color x:Key="CpLineColor">#3A3733</Color>
+            <SolidColorBrush x:Key="CpLine" Color="#3A3733" />
+            <Color x:Key="CpInkColor">#F1ECE4</Color>
+            <SolidColorBrush x:Key="CpInk" Color="#F1ECE4" />
+            <Color x:Key="CpInkMutedColor">#A8A196</Color>
+            <SolidColorBrush x:Key="CpInkMuted" Color="#A8A196" />
+            <Color x:Key="CpSageFillColor">#2F3D31</Color>
+            <SolidColorBrush x:Key="CpSageFill" Color="#2F3D31" />
+            <Color x:Key="CpSageStrongColor">#A8CFA9</Color>
+            <SolidColorBrush x:Key="CpSageStrong" Color="#A8CFA9" />
+            <Color x:Key="CpSandFillColor">#37332C</Color>
+            <SolidColorBrush x:Key="CpSandFill" Color="#37332C" />
+            <Color x:Key="CpSandStrongColor">#DCD3C2</Color>
+            <SolidColorBrush x:Key="CpSandStrong" Color="#DCD3C2" />
+            <Color x:Key="CpRoseFillColor">#432B2E</Color>
+            <SolidColorBrush x:Key="CpRoseFill" Color="#432B2E" />
+            <Color x:Key="CpRoseStrongColor">#EBA6AD</Color>
+            <SolidColorBrush x:Key="CpRoseStrong" Color="#EBA6AD" />
+            <Color x:Key="CpSkyFillColor">#2A3542</Color>
+            <SolidColorBrush x:Key="CpSkyFill" Color="#2A3542" />
+            <Color x:Key="CpSkyStrongColor">#A9C8E6</Color>
+            <SolidColorBrush x:Key="CpSkyStrong" Color="#A9C8E6" />
+            <Color x:Key="CpButterFillColor">#3D3624</Color>
+            <SolidColorBrush x:Key="CpButterFill" Color="#3D3624" />
+            <Color x:Key="CpButterStrongColor">#E8D48A</Color>
+            <SolidColorBrush x:Key="CpButterStrong" Color="#E8D48A" />
+            <Color x:Key="CpSplashContourColor">#C9A46A</Color>
+            <SolidColorBrush x:Key="CpSplashContour" Color="#C9A46A" />
+            <Color x:Key="CpSplashTitleColor">#FFFFFF</Color>
+            <SolidColorBrush x:Key="CpSplashTitle" Color="#FFFFFF" />
+            <Color x:Key="CpSplashMutedColor">#8CFFFFFF</Color>
+            <SolidColorBrush x:Key="CpSplashMuted" Color="#8CFFFFFF" />
+            <SolidColorBrush x:Key="CpSageBorder" Color="#A8CFA9" Opacity="0.4" />
+            <SolidColorBrush x:Key="CpSandBorder" Color="#DCD3C2" Opacity="0.18" />
+            <x:Double x:Key="CpSplashContourOpacity">0.20</x:Double>
+            <x:Double x:Key="CpSplashTaglineOpacity">0.6</x:Double>
+            <BitmapImage x:Key="JcdLogoImage" UriSource="ms-appx:///Assets/JCDLogo-white.png" />
+        </ResourceDictionary>
+    </ResourceDictionary.ThemeDictionaries>
+
+    <SolidColorBrush x:Key="CpOrange" Color="#F07E14" />
+
+    <CornerRadius x:Key="CpRadiusControl">6</CornerRadius>
+    <CornerRadius x:Key="CpRadiusChip">7</CornerRadius>
+    <CornerRadius x:Key="CpRadiusPanel">10</CornerRadius>
+
+    <!-- PrimaryButtonStyle: sage fill, strong text (Mac sizes: 13 pt medium/semibold, 36 pt high). -->
+    <Style x:Key="CpPrimaryButton" TargetType="Button">
+        <Setter Property="Background" Value="{ThemeResource CpSageFill}" />
+        <Setter Property="Foreground" Value="{ThemeResource CpSageStrong}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource CpSageBorder}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{StaticResource CpRadiusControl}" />
+        <Setter Property="Padding" Value="16,0" />
+        <Setter Property="MinHeight" Value="36" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
+    <!-- SecondaryButtonStyle (sand tone). -->
+    <Style x:Key="CpSecondaryButton" TargetType="Button">
+        <Setter Property="Background" Value="{ThemeResource CpSandFill}" />
+        <Setter Property="Foreground" Value="{ThemeResource CpSandStrong}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource CpSandBorder}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{StaticResource CpRadiusControl}" />
+        <Setter Property="Padding" Value="16,0" />
+        <Setter Property="MinHeight" Value="36" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontWeight" Value="Medium" />
+    </Style>
+
+    <!-- Icon buttons of the floating tools widget (About, Guide, Appearance). -->
+    <Style x:Key="CpToolIconButton" TargetType="Button">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{ThemeResource CpInkMuted}" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Width" Value="28" />
+        <Setter Property="Height" Value="28" />
+        <Setter Property="CornerRadius" Value="14" />
+    </Style>
+</ResourceDictionary>

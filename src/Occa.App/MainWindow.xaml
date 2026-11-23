@@ -4,55 +4,142 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:Occa.App"
+    xmlns:controls="using:Occa.App.Controls"
+    xmlns:views="using:Occa.App.Views"
     Title="OCCA">
 
-    <Grid>
+    <!-- Same structure as ProjectListView on Mac/iPad: paper2 background with a contour motif top-right, header
+         (app mark, name, tagline, Open file / New project), the list or the empty state, a credit footer and a
+         floating About / Guide / Appearance widget bottom-right. -->
+    <Grid x:Name="RootGrid" Background="{ThemeResource CpPaper2}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- Custom title bar: project name and actions live here (FR-W1). -->
-        <Grid x:Name="AppTitleBar" Height="48" Padding="16,0" VerticalAlignment="Top">
-            <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                <Image Source="Assets/Square44x44Logo.png" Width="20" Height="20" />
-                <TextBlock x:Name="AppTitleText" Text="OCCA" Style="{StaticResource CaptionTextBlockStyle}" VerticalAlignment="Center" />
-            </StackPanel>
+        <controls:ContourMotif Grid.RowSpan="3" Width="520" Height="360" Opacity="0.45" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-120,-160,0" />
+
+        <!-- Custom title bar (FR-W1). -->
+        <Grid x:Name="AppTitleBar" Grid.Row="0" Height="40" Padding="16,0">
+            <TextBlock x:Name="AppTitleText" Text="OCCA" FontSize="12" VerticalAlignment="Center" Foreground="{ThemeResource CpInkMuted}" />
         </Grid>
 
-        <Grid Grid.Row="1" Padding="32,16,32,24" ColumnSpacing="24">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel x:Name="Page" Spacing="24" Padding="32,24" MaxWidth="1280" HorizontalAlignment="Stretch">
 
-            <StackPanel Orientation="Horizontal" Spacing="12">
-                <TextBlock Text="Projects" Style="{StaticResource TitleTextBlockStyle}" VerticalAlignment="Center" />
-                <Button x:Name="NewProjectButton" Content="New project" IsEnabled="False" ToolTipService.ToolTip="Available in milestone M2" />
-                <Button x:Name="OpenArchiveButton" Content="Open .occa…" Click="OpenArchive_Click" AutomationProperties.Name="Open an OCCA project file" />
-                <Button x:Name="BasemapTestButton" Content="Test basemap tile" Click="BasemapTest_Click" AutomationProperties.Name="Download one Esri World Imagery tile" />
-            </StackPanel>
-
-            <ListView x:Name="ProjectList" Grid.Row="1" Margin="0,16,0,0" SelectionMode="Single" IsItemClickEnabled="True"
-                      AutomationProperties.Name="Project list">
-                <ListView.ItemTemplate>
-                    <DataTemplate x:DataType="local:ProjectListItem">
-                        <StackPanel Padding="0,8">
-                            <TextBlock Text="{x:Bind Name}" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                            <TextBlock Text="{x:Bind Summary}" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" />
+                <!-- Header -->
+                <Grid ColumnSpacing="16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Border Width="52" Height="52" CornerRadius="12" BorderBrush="{ThemeResource CpLine}" BorderThickness="1">
+                        <Image Source="ms-appx:///Assets/AppLogo.png" Stretch="Uniform" />
+                    </Border>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="OCCA" FontSize="24" FontWeight="SemiBold" CharacterSpacing="-25" Foreground="{ThemeResource CpInk}" VerticalAlignment="Bottom" />
+                            <TextBlock Text="Orienteering Cakra CAD Application" FontSize="13" FontWeight="Medium" Foreground="{ThemeResource CpInkMuted}" VerticalAlignment="Bottom" Margin="0,0,0,4" />
+                            <Border x:Name="PlanChip" CornerRadius="{StaticResource CpRadiusChip}" Background="{ThemeResource CpSandFill}" BorderBrush="{ThemeResource CpSandBorder}" BorderThickness="1" Padding="8,2" VerticalAlignment="Bottom" Margin="0,0,0,4">
+                                <TextBlock Text="Starter" FontSize="11" FontWeight="SemiBold" Foreground="{ThemeResource CpSandStrong}" />
+                            </Border>
                         </StackPanel>
-                    </DataTemplate>
-                </ListView.ItemTemplate>
-            </ListView>
+                        <TextBlock x:Name="TaglineText" FontSize="12" Foreground="{ThemeResource CpInkMuted}" TextWrapping="Wrap" MaxLines="2" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                        <Button x:Name="OpenFileButton" Style="{StaticResource CpSecondaryButton}" Click="OpenFile_Click"
+                                ToolTipService.ToolTip="Open a .occa project file (Ctrl+O)" AutomationProperties.Name="Open file">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon Glyph="&#xE8B7;" FontSize="14" />
+                                <TextBlock Text="Open file" />
+                            </StackPanel>
+                            <Button.KeyboardAccelerators>
+                                <KeyboardAccelerator Key="O" Modifiers="Control" />
+                            </Button.KeyboardAccelerators>
+                        </Button>
+                        <Button x:Name="NewProjectButton" Style="{StaticResource CpPrimaryButton}" IsEnabled="False"
+                                ToolTipService.ToolTip="New project (Ctrl+N) · available in milestone M2" AutomationProperties.Name="New project">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon Glyph="&#xE710;" FontSize="14" />
+                                <TextBlock Text="New project" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Grid>
 
-            <StackPanel x:Name="EmptyState" Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
-                <FontIcon Glyph="&#xE8A5;" FontSize="40" Opacity="0.5" />
-                <TextBlock Text="No projects yet" Style="{StaticResource SubtitleTextBlockStyle}" HorizontalAlignment="Center" />
-                <TextBlock x:Name="EmptyStateDetail" Text="Projects you create or import appear here." Opacity="0.7" HorizontalAlignment="Center" TextWrapping="Wrap" />
+                <!-- Toolbar (shown when there are projects) -->
+                <Grid x:Name="Toolbar" ColumnSpacing="12" Visibility="Collapsed">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Spacing="2">
+                        <TextBlock Text="Projects" FontSize="17" FontWeight="SemiBold" Foreground="{ThemeResource CpInk}" />
+                        <TextBlock x:Name="SummaryText" FontFamily="Consolas" FontSize="11" Foreground="{ThemeResource CpInkMuted}" />
+                    </StackPanel>
+                    <TextBox x:Name="SearchBox" Grid.Column="1" PlaceholderText="Search projects" Width="260" Height="36" TextChanged="Search_TextChanged" />
+                </Grid>
+
+                <!-- Project grid -->
+                <GridView x:Name="ProjectGrid" Visibility="Collapsed" SelectionMode="None" IsItemClickEnabled="True" AutomationProperties.Name="Project list">
+                    <GridView.ItemTemplate>
+                        <DataTemplate x:DataType="local:ProjectListItem">
+                            <Border Width="320" Margin="0,0,24,24" CornerRadius="{StaticResource CpRadiusPanel}" Background="{ThemeResource CpPaper}" BorderBrush="{ThemeResource CpLine}" BorderThickness="1" Padding="12">
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="{x:Bind Name}" FontSize="15" FontWeight="SemiBold" Foreground="{ThemeResource CpInk}" />
+                                    <TextBlock Text="{x:Bind Summary}" FontFamily="Consolas" FontSize="11" Foreground="{ThemeResource CpInkMuted}" />
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </GridView.ItemTemplate>
+                </GridView>
+
+                <!-- Empty state -->
+                <StackPanel x:Name="EmptyState" Spacing="16" HorizontalAlignment="Center" Margin="0,80,0,0">
+                    <controls:ContourMotif Width="300" Height="200" HorizontalAlignment="Center" />
+                    <TextBlock Text="No map sheets yet" FontSize="19" FontWeight="SemiBold" Foreground="{ThemeResource CpInk}" HorizontalAlignment="Center" />
+                    <TextBlock Text="Create a project, select an A4 area on satellite imagery, then sketch with your pen or mouse. The result is georeferenced right away for OCAD and OpenOrienteering Mapper."
+                               FontSize="13" Foreground="{ThemeResource CpInkMuted}" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="460" HorizontalAlignment="Center" />
+                    <TextBlock x:Name="EmptyStateDetail" FontFamily="Consolas" FontSize="11" Foreground="{ThemeResource CpInkMuted}" HorizontalAlignment="Center" />
+                    <Button Style="{StaticResource CpPrimaryButton}" IsEnabled="False" HorizontalAlignment="Center" ToolTipService.ToolTip="Available in milestone M2">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE710;" FontSize="14" />
+                            <TextBlock Text="Create first project" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+
+                <InfoBar x:Name="StatusBar" IsOpen="False" IsClosable="True" />
             </StackPanel>
+        </ScrollViewer>
 
-            <InfoBar x:Name="StatusBar" Grid.Row="2" IsOpen="False" IsClosable="True" Margin="0,16,0,0" />
+        <!-- Credit footer, centred; About / Guide / Appearance float bottom-right. -->
+        <Grid Grid.Row="2" Padding="16,8" Background="{ThemeResource CpPaper2}">
+            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <TextBlock x:Name="CreditText" FontFamily="Consolas" FontSize="10" Foreground="{ThemeResource CpInkMuted}" VerticalAlignment="Center" />
+                <Image Source="{ThemeResource JcdLogoImage}" Height="18" Stretch="Uniform" VerticalAlignment="Center" />
+            </StackPanel>
+            <Border HorizontalAlignment="Right" VerticalAlignment="Center" CornerRadius="16" Background="{ThemeResource CpPaper}" BorderBrush="{ThemeResource CpLine}" BorderThickness="1" Padding="4,2">
+                <StackPanel Orientation="Horizontal" Spacing="2">
+                    <Button Style="{StaticResource CpToolIconButton}" Click="BasemapTest_Click" ToolTipService.ToolTip="Test basemap tile (M0 spike)" AutomationProperties.Name="Download one Esri World Imagery tile">
+                        <FontIcon Glyph="&#xE774;" FontSize="14" />
+                    </Button>
+                    <Button Style="{StaticResource CpToolIconButton}" Click="About_Click" ToolTipService.ToolTip="About OCCA · credits" AutomationProperties.Name="About OCCA">
+                        <FontIcon Glyph="&#xE946;" FontSize="14" />
+                    </Button>
+                    <Button Style="{StaticResource CpToolIconButton}" IsEnabled="False" ToolTipService.ToolTip="Guide (available later)" AutomationProperties.Name="OCCA guide">
+                        <FontIcon Glyph="&#xE8A5;" FontSize="14" />
+                    </Button>
+                    <Button x:Name="AppearanceButton" Style="{StaticResource CpToolIconButton}" Click="Appearance_Click" AutomationProperties.Name="Appearance">
+                        <FontIcon x:Name="AppearanceIcon" FontSize="14" />
+                    </Button>
+                </StackPanel>
+            </Border>
         </Grid>
+
+        <!-- Splash on top of everything at launch (about 4 s), then a fade. -->
+        <views:SplashView x:Name="Splash" Grid.RowSpan="3" Finished="Splash_Finished" />
     </Grid>
 </Window>

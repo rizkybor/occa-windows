@@ -3,6 +3,7 @@ using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Imaging;
+using Occa.Core;
 using Occa.Core.Basemap;
 using Occa.Core.Project;
 using Windows.Storage.Pickers;
@@ -10,13 +11,15 @@ using Windows.Storage.Streams;
 
 namespace Occa.App;
 
-/// <summary>Main window: the project list (M0: empty, reads %LOCALAPPDATA%\OCCA\Projects) and the M0 spike actions.</summary>
+/// <summary>Main window: the project list (reads %LOCALAPPDATA%\OCCA\Projects) and the M0 spike actions.</summary>
 public sealed partial class MainWindow : Window
 {
     /// <summary>FR-W9: projects live in %LOCALAPPDATA%\OCCA\Projects in the same package layout as Mac.</summary>
-    public static string ProjectsFolder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "OCCA", "Projects");
+    public static string ProjectsFolder => Path.Combine(UserSettings.Folder, "Projects");
 
     private static readonly HttpClient Http = new();
+    private readonly UserSettings _settings = UserSettings.Load();
+    private List<ProjectListItem> _projects = new();
 
     public MainWindow()
     {
@@ -26,10 +29,45 @@ public sealed partial class MainWindow : Window
         AppWindow.SetIcon("Assets/occa.ico");
         // FR-W4: the main window needs at least 1100×760; start a little larger.
         AppWindow.Resize(new Windows.Graphics.SizeInt32(1280, 820));
-        if (AppWindow.Presenter is OverlappedPresenter presenter) presenter.PreferredMinimumWidth = 1100;
-        if (AppWindow.Presenter is OverlappedPresenter p2) p2.PreferredMinimumHeight = 760;
+        if (AppWindow.Presenter is OverlappedPresenter presenter)
+        {
+            presenter.PreferredMinimumWidth = 1100;
+            presenter.PreferredMinimumHeight = 760;
+        }
+        TaglineText.Text = AppInfo.Tagline;
+        CreditText.Text = $"{AppInfo.Name} {AppInfo.Year} · {AppInfo.Country} · Supported by";
+        ApplyAppearance();
         LoadProjects();
     }
+
+    // MARK: Appearance
+
+    private void ApplyAppearance()
+    {
+        RootGrid.RequestedTheme = _settings.Appearance switch
+        {
+            AppearanceMode.Light => ElementTheme.Light,
+            AppearanceMode.Dark => ElementTheme.Dark,
+            _ => ElementTheme.Default,
+        };
+        AppearanceIcon.Glyph = _settings.Appearance.Glyph();
+        ToolTipService.SetToolTip(AppearanceButton, $"Appearance: {_settings.Appearance.Label()} · click for {_settings.Appearance.Next().Label()}");
+    }
+
+    /// <summary>One click switches to the next mode (Light → Dark → System → Light), saved for the next launch.</summary>
+    private void Appearance_Click(object sender, RoutedEventArgs e)
+    {
+        _settings.Appearance = _settings.Appearance.Next();
+        ApplyAppearance();
+        try { _settings.Save(); } catch (Exception ex) { ShowStatus(InfoBarSeverity.Warning, "Settings not saved", ex.Message); }
+    }
+
+    private void Splash_Finished(object? sender, EventArgs e)
+    {
+        RootGrid.Children.Remove(Splash);
+    }
+
+    // MARK: Projects
 
     private void LoadProjects()
     {
@@ -52,13 +90,26 @@ public sealed partial class MainWindow : Window
                 }
             }
         }
-        ProjectList.ItemsSource = items.OrderBy(i => i.Name).ToList();
-        EmptyState.Visibility = items.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-        EmptyStateDetail.Text = $"Projects you create or import appear here.\n{ProjectsFolder}";
+        _projects = items.OrderBy(i => i.Name).ToList();
+        EmptyStateDetail.Text = ProjectsFolder;
+        ShowProjects();
     }
 
+    private void ShowProjects()
+    {
+        bool any = _projects.Count > 0;
+        EmptyState.Visibility = any ? Visibility.Collapsed : Visibility.Visible;
+        Toolbar.Visibility = any ? Visibility.Visible : Visibility.Collapsed;
+        ProjectGrid.Visibility = any ? Visibility.Visible : Visibility.Collapsed;
+        SummaryText.Text = $"{_projects.Count} {(_projects.Count == 1 ? "project" : "projects")}";
+        var query = SearchBox.Text?.Trim() ?? "";
+        ProjectGrid.ItemsSource = query.Length == 0 ? _projects : _projects.Where(p => p.Name.Contains(query, StringComparison.OrdinalIgnoreCase)).ToList();
+    }
+
+    private void Search_TextChanged(object sender, TextChangedEventArgs e) => ShowProjects();
+
     /// <summary>M0 spike: read a Mac/iPad .occa (LZFSE) and show what it contains.</summary>
-    private async void OpenArchive_Click(object sender, RoutedEventArgs e)
+    private async void OpenFile_Click(object sender, RoutedEventArgs e)
     {
         var picker = new FileOpenPicker();
         WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(this));
@@ -78,15 +129,13 @@ public sealed partial class MainWindow : Window
                        + $"\n\nFiles in archive:\n  {string.Join("\n  ", summary.Files)}";
             await ShowDialog(file.Name, text);
         }
-        catch (ProjectArchiveException ex)
-        {
-            ShowStatus(InfoBarSeverity.Error, "Cannot open project file", ex.Message);
-        }
         catch (Exception ex)
         {
             ShowStatus(InfoBarSeverity.Error, "Cannot open project file", ex.Message);
         }
     }
+
+    // MARK: Spikes and dialogs
 
     /// <summary>M0 spike: download one Esri World Imagery tile with the configured API key.</summary>
     private async void BasemapTest_Click(object sender, RoutedEventArgs e)
@@ -127,6 +176,7 @@ public sealed partial class MainWindow : Window
                 },
                 CloseButtonText = "Close",
                 XamlRoot = Content.XamlRoot,
+                RequestedTheme = RootGrid.RequestedTheme,
             };
             await dialog.ShowAsync();
         }
@@ -134,6 +184,13 @@ public sealed partial class MainWindow : Window
         {
             ShowStatus(InfoBarSeverity.Error, "Tile download failed", ex.Message);
         }
+    }
+
+    private async void About_Click(object sender, RoutedEventArgs e)
+    {
+        await ShowDialog($"About {AppInfo.Name}",
+            $"{AppInfo.Name} · {AppInfo.FullName}\n{AppInfo.VersionText}\n\nDeveloper: {AppInfo.Developer}\nSupported by {AppInfo.Supporter}\n{AppInfo.SupporterUrl}\n\n"
+            + $"Satellite imagery: {EsriWorldImagery.Attribution}.");
     }
 
     private async Task ShowDialog(string title, string text)
@@ -144,6 +201,7 @@ public sealed partial class MainWindow : Window
             Content = new ScrollViewer { Content = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap, IsTextSelectionEnabled = true }, MaxHeight = 480 },
             CloseButtonText = "Close",
             XamlRoot = Content.XamlRoot,
+            RequestedTheme = RootGrid.RequestedTheme,
         };
         await dialog.ShowAsync();
     }
@@ -157,5 +215,5 @@ public sealed partial class MainWindow : Window
     }
 }
 
-/// <summary>One row of the project list.</summary>
+/// <summary>One card of the project list.</summary>
 public sealed record ProjectListItem(string Name, string Summary);
