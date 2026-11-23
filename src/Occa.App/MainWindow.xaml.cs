@@ -35,6 +35,7 @@ public sealed partial class MainWindow : Window
             presenter.PreferredMinimumHeight = 760;
         }
         TaglineText.Text = AppInfo.Tagline;
+        Map.WindowHandle = WinRT.Interop.WindowNative.GetWindowHandle(this);
         CreditText.Text = $"{AppInfo.Name} {AppInfo.Year} · {AppInfo.Country} · Supported by";
         ApplyAppearance();
         LoadProjects();
@@ -122,11 +123,27 @@ public sealed partial class MainWindow : Window
             WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(this));
             picker.FileTypeFilter.Add(ProjectArchive.FileExtension);
             foreach (var ext in ProjectArchive.LegacyFileExtensions) picker.FileTypeFilter.Add(ext);
+            foreach (var ext in Occa.Core.Import.MapFileImport.FileExtensions) picker.FileTypeFilter.Add("." + ext);
             var file = await picker.PickSingleFileAsync();
             if (file is null) return;
 
             var bytes = await File.ReadAllBytesAsync(file.Path);
-            var entry = await Task.Run(() => _repository.Import(bytes));
+            var extension = Path.GetExtension(file.Path).TrimStart('.').ToLowerInvariant();
+            ProjectRepository.Entry entry;
+            if (Occa.Core.Import.MapFileImport.FileExtensions.Contains(extension))
+            {
+                // OCAD / OOM map → a new project (M3). OCAD files do not store their UTM zone: ask for it.
+                var content = await Task.Run(() => Occa.Core.Import.MapFileImport.Read(bytes, extension));
+                var zone = content.KnownZone ?? await AskZoneAsync();
+                if (zone is not { } z) return;
+                var doc = Occa.Core.Import.MapFileImport.Document(Path.GetFileNameWithoutExtension(file.Path), content, z);
+                entry = await Task.Run(() => _repository.Create(doc));
+                LoadProjects();
+                ShowStatus(InfoBarSeverity.Success, "Map imported", $"{content.Report.Imported} objects imported" + (content.Report.SkippedText + content.Report.SkippedPoints > 0 ? $", {content.Report.SkippedText} text and {content.Report.SkippedPoints} point objects skipped." : "."));
+                await OpenProject(entry);
+                return;
+            }
+            entry = await Task.Run(() => _repository.Import(bytes));
             LoadProjects();
             ShowStatus(InfoBarSeverity.Success, "Project imported", $"\"{entry.Project.Name}\" was added to your projects.");
             await OpenProject(entry);
@@ -136,6 +153,20 @@ public sealed partial class MainWindow : Window
             // The picker itself can fail too (for example when OCCA runs elevated), so it is inside the try.
             ShowStatus(InfoBarSeverity.Error, "Cannot open project file", ex.Message);
         }
+    }
+
+    /// <summary>UTM zone for an OCAD map (which stores projected metres but not the zone).</summary>
+    private async Task<Core.Geometry.UtmZone?> AskZoneAsync()
+    {
+        var zones = Enumerable.Range(1, 60).SelectMany(n => new[] { Core.Geometry.UtmZone.Create(n, false)!.Value, Core.Geometry.UtmZone.Create(n, true)!.Value }).ToList();
+        var box = new ComboBox { ItemsSource = zones.Select(z => z.Label).ToList(), SelectedIndex = zones.FindIndex(z => z.Number == 48 && !z.IsNorth), HorizontalAlignment = HorizontalAlignment.Stretch };
+        var dialog = new ContentDialog
+        {
+            Title = "UTM zone of the OCAD map",
+            Content = new StackPanel { Spacing = 8, Children = { new TextBlock { Text = "OCAD files keep projected coordinates but not their UTM zone. Choose the zone of the map area (Indonesia: 46–54, S south of the equator).", TextWrapping = TextWrapping.Wrap }, box } },
+            PrimaryButtonText = "Import", CloseButtonText = "Cancel", XamlRoot = Content.XamlRoot, RequestedTheme = RootGrid.RequestedTheme,
+        };
+        return await dialog.ShowAsync() == ContentDialogResult.Primary && box.SelectedIndex >= 0 ? zones[box.SelectedIndex] : null;
     }
 
     // MARK: Spikes and dialogs

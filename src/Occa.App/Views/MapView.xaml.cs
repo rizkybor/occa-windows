@@ -6,6 +6,8 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Occa.Core.Basemap;
+using Occa.Core.Export;
+using Occa.Core.Vector;
 using Occa.Core.Geometry;
 using Occa.Core.Project;
 using Occa.Core.Render;
@@ -278,6 +280,63 @@ public sealed partial class MapView : UserControl
     }
 
     private void Back_Click(object sender, RoutedEventArgs e) => BackRequested?.Invoke(this, EventArgs.Empty);
+
+    /// <summary>M3: PDF (CMYK, Geospatial PDF), PNG/TIFF/JPEG + world file + .prj, OMAP, DXF.</summary>
+    private async void Export_Click(object sender, RoutedEventArgs e)
+    {
+        if (_doc is null || _scene is null) return;
+        if (_doc.Project.Frame is not { } frame || _doc.Project.Zone is not { } zone)
+        {
+            Show(InfoBarSeverity.Warning, "No map area", "Lock a map area (frame and UTM zone) before exporting.");
+            return;
+        }
+        var dialog = new ExportDialog(WindowHandle, _doc.Project.Name, _doc.Project.NorthGrid is { IsEnabled: true }) { XamlRoot = XamlRoot, RequestedTheme = ActualTheme };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+        var baseName = dialog.FileName.Length == 0 ? "map" : dialog.FileName;
+        var folder = dialog.Folder;
+        var grid = dialog.IncludeGrid ? _doc.Project.NorthGrid : null;
+        var features = _doc.Features.WithColorPriorities(StandardSymbolSets.LookupFor(_doc.Project.Sheet));
+        try
+        {
+            Directory.CreateDirectory(folder);
+            var written = new List<string>();
+            switch (dialog.SelectedKind)
+            {
+                case ExportDialog.Kind.Pdf:
+                {
+                    var req = new GeoPdfRequest { Title = _doc.Project.Name, Frame = frame, Sheet = _doc.Project.Sheet, Zone = zone, Strokes = _doc.Strokes, Features = features, Grid = grid };
+                    var path = Path.Combine(folder, baseName + ".pdf");
+                    await Task.Run(() => GeoPdfExporter.Export(req, path));
+                    written.Add(path);
+                    break;
+                }
+                case ExportDialog.Kind.Png:
+                case ExportDialog.Kind.Tiff:
+                case ExportDialog.Kind.Jpeg:
+                {
+                    var req = new RasterExportRequest { BaseName = baseName, Frame = frame, Sheet = _doc.Project.Sheet, Zone = zone, Dpi = dialog.Dpi, Format = dialog.RasterFormat, Strokes = _doc.Strokes, Features = features, Grid = grid };
+                    var result = await RasterExporter.ExportAsync(req, folder, _scene);
+                    written.AddRange(result.AllFiles);
+                    break;
+                }
+                default:
+                {
+                    var req = new VectorExportRequest { BaseName = baseName, Frame = frame, Sheet = _doc.Project.Sheet, Zone = zone, Strokes = _doc.Strokes, Features = features, Grid = grid };
+                    var format = dialog.SelectedKind == ExportDialog.Kind.Omap ? VectorFormat.Omap : VectorFormat.Dxf;
+                    written.AddRange(await Task.Run(() => VectorExporter.Export(req, new HashSet<VectorFormat> { format }, folder)));
+                    break;
+                }
+            }
+            Show(InfoBarSeverity.Success, "Exported", string.Join(", ", written.Select(Path.GetFileName)) + $" → {folder}");
+        }
+        catch (Exception ex)
+        {
+            Show(InfoBarSeverity.Error, "Export failed", ex.Message);
+        }
+    }
+
+    /// <summary>Handle of the window hosting this view (for pickers).</summary>
+    public nint WindowHandle { get; set; }
 
     private void Show(InfoBarSeverity severity, string title, string message)
     {

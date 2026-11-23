@@ -47,6 +47,15 @@
                 <Button Style="{StaticResource CpSecondaryButton}" Click="Fit_Click" ToolTipService.ToolTip="Zoom to the map area (Ctrl+0)" AutomationProperties.Name="Zoom to map area">
                     <FontIcon Glyph="&#xE9A6;" FontSize="14" />
                 </Button>
+                <Button x:Name="ExportButton" Style="{StaticResource CpPrimaryButton}" Click="Export_Click" ToolTipService.ToolTip="Export PDF, raster, OMAP or DXF (Ctrl+E)" AutomationProperties.Name="Export">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon Glyph="&#xE898;" FontSize="14" />
+                        <TextBlock Text="Export" />
+                    </StackPanel>
+                    <Button.KeyboardAccelerators>
+                        <KeyboardAccelerator Key="E" Modifiers="Control" />
+                    </Button.KeyboardAccelerators>
+                </Button>
             </StackPanel>
         </Grid>
 

@@ -70,6 +70,11 @@ Key code paths:
   CakraCore suites (FeatureCutTests, AreaHolesTests, FeatureCornersTests, FeatureMergeTests…).
 - Saving: `Compression/LzfseEncoder.cs` writes uncompressed LZFSE blocks (valid for Apple's decoder; verified on
   Mac); `ProjectArchive.Pack` builds `.occa`; `ProjectPackage.Write` writes the package JSON byte-identical to Mac.
+- Output (M3): `Export/GeoPdfExporter.cs` (hand-written Geospatial PDF, DeviceCMYK from the IOF table via
+  `IofColors`, byte-compatible with the Mac exporter), `Export/OmapWriter.cs` + `DxfWriter.cs` + `ExportTypes.cs`
+  (symbol table, requests, world file, sidecars); raster drawing lives in `Occa.Render/RasterExporter.cs` (Win2D).
+  Import: `Import/OcadReader.cs` (OCAD 10–2018), `OmapReader.cs`, `OmapSymbolSet.cs`, `MapFileImport.cs`.
+  OOM sets in `tests/.../Fixtures/oom` are GPL test inputs only, never shipped.
 - Golden tests: `tests/Occa.Core.Tests/Fixtures/symbol-display.occa` + `.golden.json` were computed by CakraCore;
   `GoldenDisplayTests` must stay green. When porting more of CakraCore, extend the generator and the goldens.
 
