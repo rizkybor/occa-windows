@@ -30,8 +30,10 @@ public class BasemapTests
     public void RequiresAnApiKey()
     {
         Assert.Throws<ArgumentException>(() => new EsriWorldImagery(new HttpClient(), ""));
-        Assert.Null(EsriWorldImagery.ResolveApiKey(null));
-        Assert.Equal("k", EsriWorldImagery.ResolveApiKey(" k "));
+        Assert.Null(EsriWorldImagery.ResolveApiKey(null, null));
+        Assert.Null(EsriWorldImagery.ResolveApiKey("  ", ""));
+        Assert.Equal("k", EsriWorldImagery.ResolveApiKey(" k ", "env"));
+        Assert.Equal("env", EsriWorldImagery.ResolveApiKey(null, " env "));
     }
 
     /// <summary>Live check against Esri; runs only when OCCA_ESRI_API_KEY is set (locally or as a CI secret).</summary>

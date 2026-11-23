@@ -32,10 +32,13 @@ public sealed class EsriWorldImagery
 
     /// <summary>Reads the key from configuration: the explicit value when set, otherwise the environment variable.</summary>
     public static string? ResolveApiKey(string? configuredKey)
+        => ResolveApiKey(configuredKey, Environment.GetEnvironmentVariable(ApiKeyEnvironmentVariable));
+
+    /// <summary>Same rule with the environment value passed in, so it can be tested without touching the process environment.</summary>
+    public static string? ResolveApiKey(string? configuredKey, string? environmentValue)
     {
         if (!string.IsNullOrWhiteSpace(configuredKey)) return configuredKey.Trim();
-        var env = Environment.GetEnvironmentVariable(ApiKeyEnvironmentVariable);
-        return string.IsNullOrWhiteSpace(env) ? null : env.Trim();
+        return string.IsNullOrWhiteSpace(environmentValue) ? null : environmentValue.Trim();
     }
 
     /// <summary>Tile URL with the key as the <c>token</c> query parameter.</summary>
