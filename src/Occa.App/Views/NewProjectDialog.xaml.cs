@@ -33,7 +33,7 @@ public sealed partial class NewProjectDialog : ContentDialog
         Validate();
     }
 
-    public int Scale => ScaleBox.SelectedItem is ComboBoxItem { Tag: int s } ? s : 4000;
+    public int SheetScale => ScaleBox.SelectedItem is ComboBoxItem { Tag: int s } ? s : 4000;
     public bool Landscape => OrientationBox.SelectedIndex == 1;
     public string ProjectName => NameBox.Text.Trim();
     public LatLon? Location => Parse(LatBox.Text) is double lat && Parse(LonBox.Text) is double lon && Math.Abs(lat) <= 84 && Math.Abs(lon) <= 180 ? new LatLon(lat, lon) : null;
@@ -45,9 +45,9 @@ public sealed partial class NewProjectDialog : ContentDialog
 
     private void Validate()
     {
-        var standard = MapStandardExtensions.ForScale(Scale);
-        StandardText.Text = $"{standard.Label()} symbols · {ContourSettings_DefaultInterval(Scale)} m contours · A4 covers about {Math.Round(new SheetSpec { ScaleDenominator = Scale }.GroundWidthM)} × {Math.Round(new SheetSpec { ScaleDenominator = Scale }.GroundHeightM)} m";
-        bool allowed = FreeLimits.AllowsScale(AppLicense.Shared.IsPro, Scale);
+        var standard = MapStandardExtensions.ForScale(SheetScale);
+        StandardText.Text = $"{standard.Label()} symbols · {ContourSettings_DefaultInterval(SheetScale)} m contours · A4 covers about {Math.Round(new SheetSpec { ScaleDenominator = SheetScale }.GroundWidthM)} × {Math.Round(new SheetSpec { ScaleDenominator = SheetScale }.GroundHeightM)} m";
+        bool allowed = FreeLimits.AllowsScale(AppLicense.Shared.IsPro, SheetScale);
         LimitText.Visibility = allowed ? Visibility.Collapsed : Visibility.Visible;
         LimitText.Text = $"Starter offers {FreeLimits.ScalesLabel}; other scales need a license key.";
         ZoneText.Text = Location is { } ll ? $"UTM {UtmZone.Containing(ll).Label} (EPSG:{UtmZone.Containing(ll).Epsg})" : "Enter a valid latitude and longitude.";
@@ -59,14 +59,14 @@ public sealed partial class NewProjectDialog : ContentDialog
     /// <summary>The project to create (area not locked yet); null when the scale needs a license key (the License screen opened).</summary>
     public Project? Build()
     {
-        if (!AppLicense.Shared.Require(ProFeature.AllScales, overLimit: !FreeLimits.AllowsScale(AppLicense.Shared.IsPro, Scale))) return null;
+        if (!AppLicense.Shared.Require(ProFeature.AllScales, overLimit: !FreeLimits.AllowsScale(AppLicense.Shared.IsPro, SheetScale))) return null;
         if (Location is not { } ll) return null;
         var zone = UtmZone.Containing(ll);
         var project = new Project { Name = ProjectName, CrsEpsg = zone.Epsg, AreaLocked = false };
-        project.Sheet.ScaleDenominator = Scale;
+        project.Sheet.ScaleDenominator = SheetScale;
         project.Sheet.Orientation = Landscape ? SheetOrientation.Landscape : SheetOrientation.Portrait;
         project.FrameOrigin = MapFrame.Centered(zone.Project(ll), project.Sheet).SnappedToStep(project.SnapStepM).Origin;
-        _settings.LastScale = Scale;
+        _settings.LastScale = SheetScale;
         _settings.LastLandscape = Landscape;
         _settings.LastLat = ll.Lat;
         _settings.LastLon = ll.Lon;

@@ -84,7 +84,7 @@ public sealed partial class MapView : UserControl
     private List<ContourLine>? _importedContours;
     private List<ContourLine>? _contourLines;
     private CancellationTokenSource? _contourJob;
-    private DispatcherQueueTimer? _saveTimer;
+    private Microsoft.UI.Dispatching.DispatcherQueueTimer? _saveTimer;
     private const double OverprintScreenAlpha = 0.9;
 
     public MapView()
