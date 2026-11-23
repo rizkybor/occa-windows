@@ -11,14 +11,14 @@ using Windows.Storage.Streams;
 
 namespace Occa.App;
 
-/// <summary>Main window: the project list (reads %LOCALAPPDATA%\OCCA\Projects) and the M0 spike actions.</summary>
+/// <summary>Main window: the project list (%LOCALAPPDATA%\OCCA\Projects) and, when a project is open, its map.</summary>
 public sealed partial class MainWindow : Window
 {
     /// <summary>FR-W9: projects live in %LOCALAPPDATA%\OCCA\Projects in the same package layout as Mac.</summary>
     public static string ProjectsFolder => Path.Combine(UserSettings.Folder, "Projects");
 
-    private static readonly HttpClient Http = new();
     private readonly UserSettings _settings = UserSettings.Load();
+    private readonly ProjectRepository _repository = new(ProjectsFolder);
     private List<ProjectListItem> _projects = new();
 
     public MainWindow()
@@ -62,35 +62,21 @@ public sealed partial class MainWindow : Window
         try { _settings.Save(); } catch (Exception ex) { ShowStatus(InfoBarSeverity.Warning, "Settings not saved", ex.Message); }
     }
 
-    private void Splash_Finished(object? sender, EventArgs e)
-    {
-        RootGrid.Children.Remove(Splash);
-    }
+    private void Splash_Finished(object? sender, EventArgs e) => RootGrid.Children.Remove(Splash);
 
     // MARK: Projects
 
     private void LoadProjects()
     {
-        var items = new List<ProjectListItem>();
-        if (Directory.Exists(ProjectsFolder))
+        try
         {
-            foreach (var dir in Directory.EnumerateDirectories(ProjectsFolder, "*.cakra"))
-            {
-                var projectFile = Path.Combine(dir, ProjectArchive.ProjectFileName);
-                if (!File.Exists(projectFile)) continue;
-                try
-                {
-                    var entries = new Dictionary<string, byte[]> { [ProjectArchive.ProjectFileName] = File.ReadAllBytes(projectFile) };
-                    var summary = ProjectSummary.FromEntries(entries);
-                    items.Add(new ProjectListItem(summary.Name, $"1:{summary.ScaleDenominator}" + (summary.CrsEpsg is int epsg ? $" · EPSG:{epsg}" : "")));
-                }
-                catch (Exception)
-                {
-                    items.Add(new ProjectListItem(Path.GetFileNameWithoutExtension(dir), "Cannot read project.json"));
-                }
-            }
+            _projects = _repository.Load().Select(ProjectListItem.From).ToList();
         }
-        _projects = items.OrderBy(i => i.Name).ToList();
+        catch (Exception ex)
+        {
+            _projects = new();
+            ShowStatus(InfoBarSeverity.Error, "Cannot read the projects folder", ex.Message);
+        }
         EmptyStateDetail.Text = ProjectsFolder;
         ShowProjects();
     }
@@ -108,29 +94,46 @@ public sealed partial class MainWindow : Window
 
     private void Search_TextChanged(object sender, TextChangedEventArgs e) => ShowProjects();
 
-    /// <summary>M0 spike: read a Mac/iPad .occa (LZFSE) and show what it contains.</summary>
+    private async void ProjectGrid_ItemClick(object sender, ItemClickEventArgs e)
+    {
+        if (e.ClickedItem is ProjectListItem item) await OpenProject(item.Entry);
+    }
+
+    private async Task OpenProject(ProjectRepository.Entry entry)
+    {
+        Map.Visibility = Visibility.Visible;
+        AppTitleText.Text = $"{AppInfo.Name} · {entry.Project.Name}";
+        await Map.OpenAsync(entry);
+    }
+
+    private void Map_BackRequested(object? sender, EventArgs e)
+    {
+        Map.Visibility = Visibility.Collapsed;
+        AppTitleText.Text = AppInfo.Name;
+        LoadProjects();
+    }
+
+    /// <summary>Open file: a Mac/iPad .occa is imported into the projects folder, then opened.</summary>
     private async void OpenFile_Click(object sender, RoutedEventArgs e)
     {
-        var picker = new FileOpenPicker();
-        WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(this));
-        picker.FileTypeFilter.Add(ProjectArchive.FileExtension);
-        foreach (var ext in ProjectArchive.LegacyFileExtensions) picker.FileTypeFilter.Add(ext);
-        var file = await picker.PickSingleFileAsync();
-        if (file is null) return;
-
         try
         {
+            var picker = new FileOpenPicker { SuggestedStartLocation = PickerLocationId.DocumentsLibrary };
+            WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(this));
+            picker.FileTypeFilter.Add(ProjectArchive.FileExtension);
+            foreach (var ext in ProjectArchive.LegacyFileExtensions) picker.FileTypeFilter.Add(ext);
+            var file = await picker.PickSingleFileAsync();
+            if (file is null) return;
+
             var bytes = await File.ReadAllBytesAsync(file.Path);
-            var summary = await Task.Run(() => ProjectSummary.FromEntries(ProjectArchive.ReadEntries(bytes)));
-            var text = $"Name: {summary.Name}\nScale: 1:{summary.ScaleDenominator}\nCRS: {(summary.CrsEpsg is int epsg ? $"EPSG:{epsg}" : "not set")}\n\n"
-                       + $"Objects: {summary.ObjectCount} ({summary.FeatureCount} features, {summary.StrokeCount} sketch strokes)\n"
-                       + $"Controls: {summary.ControlCount}\nCourses: {summary.CourseCount}"
-                       + (summary.EventTitle.Length > 0 ? $" (event \"{summary.EventTitle}\")" : "")
-                       + $"\n\nFiles in archive:\n  {string.Join("\n  ", summary.Files)}";
-            await ShowDialog(file.Name, text);
+            var entry = await Task.Run(() => _repository.Import(bytes));
+            LoadProjects();
+            ShowStatus(InfoBarSeverity.Success, "Project imported", $"\"{entry.Project.Name}\" was added to your projects.");
+            await OpenProject(entry);
         }
         catch (Exception ex)
         {
+            // The picker itself can fail too (for example when OCCA runs elevated), so it is inside the try.
             ShowStatus(InfoBarSeverity.Error, "Cannot open project file", ex.Message);
         }
     }
@@ -149,7 +152,7 @@ public sealed partial class MainWindow : Window
         }
         try
         {
-            var imagery = new EsriWorldImagery(Http, key, App.Settings.Esri.TileTemplate);
+            var imagery = new EsriWorldImagery(App.Http, key, App.Settings.Esri.TileTemplate);
             // Monas, Jakarta at zoom 17.
             var (x, y) = WebMercator.TileFor(-6.1754, 106.8272, 17);
             var tile = await imagery.FetchTileAsync(x, y, 17);
@@ -215,5 +218,17 @@ public sealed partial class MainWindow : Window
     }
 }
 
-/// <summary>One card of the project list.</summary>
-public sealed record ProjectListItem(string Name, string Summary);
+/// <summary>One card of the project list (Mac's ProjectCard).</summary>
+public sealed class ProjectListItem
+{
+    public required ProjectRepository.Entry Entry { get; init; }
+    public string Name => Entry.Project.Name;
+    public string Summary => Entry.Project.TechnicalSummary;
+    public string ScaleLabel => $"1:{Entry.Project.Sheet.ScaleDenominator}";
+    public string Dates => $"Created {Entry.Project.CreatedAt.ToLocalTime():d MMM yyyy} · Modified {Entry.Project.UpdatedAt.ToLocalTime():d MMM yyyy}";
+    public BitmapImage? Thumbnail => Entry.HasThumbnail ? new BitmapImage(new Uri(Entry.ThumbnailPath)) : null;
+    public string PreviewLabel => Entry.Project.AreaLocked ? "No preview yet" : "Select a map area or upload a GeoTIFF basemap";
+    public Visibility PreviewLabelVisibility => Entry.HasThumbnail ? Visibility.Collapsed : Visibility.Visible;
+
+    public static ProjectListItem From(ProjectRepository.Entry entry) => new() { Entry = entry };
+}

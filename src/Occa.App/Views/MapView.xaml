@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="Occa.App.Views.MapView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:canvas="using:Microsoft.Graphics.Canvas.UI.Xaml"
+    Background="{ThemeResource CpPaper2}">
+
+    <UserControl.KeyboardAccelerators>
+        <KeyboardAccelerator Key="Number0" Modifiers="Control" Invoked="FitAccelerator_Invoked" />
+    </UserControl.KeyboardAccelerators>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Top bar: back, project name, basemap controls (the Mac top bar's map controls). -->
+        <Grid Padding="12,8" ColumnSpacing="12" Background="{ThemeResource CpPaper2}" BorderBrush="{ThemeResource CpLine}" BorderThickness="0,0,0,1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <Button Style="{StaticResource CpSecondaryButton}" Click="Back_Click" AutomationProperties.Name="Back to projects">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <FontIcon Glyph="&#xE72B;" FontSize="14" />
+                    <TextBlock Text="Projects" />
+                </StackPanel>
+            </Button>
+            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="0">
+                <TextBlock x:Name="TitleText" FontSize="15" FontWeight="SemiBold" Foreground="{ThemeResource CpInk}" TextTrimming="CharacterEllipsis" />
+                <TextBlock x:Name="SummaryText" FontFamily="Consolas" FontSize="11" Foreground="{ThemeResource CpInkMuted}" />
+            </StackPanel>
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                <ToggleButton x:Name="BasemapToggle" IsChecked="True" Click="Basemap_Click" ToolTipService.ToolTip="Satellite basemap (Esri World Imagery)" AutomationProperties.Name="Satellite basemap" MinHeight="36">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon Glyph="&#xE774;" FontSize="14" />
+                        <TextBlock Text="Satellite" />
+                    </StackPanel>
+                </ToggleButton>
+                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <TextBlock Text="Opacity" FontSize="12" Foreground="{ThemeResource CpInkMuted}" VerticalAlignment="Center" />
+                    <Slider x:Name="OpacitySlider" Minimum="0" Maximum="100" Width="120" ValueChanged="Opacity_ValueChanged" AutomationProperties.Name="Basemap opacity" />
+                </StackPanel>
+                <Button Style="{StaticResource CpSecondaryButton}" Click="Fit_Click" ToolTipService.ToolTip="Zoom to the map area (Ctrl+0)" AutomationProperties.Name="Zoom to map area">
+                    <FontIcon Glyph="&#xE9A6;" FontSize="14" />
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <Grid Grid.Row="1">
+            <canvas:CanvasControl x:Name="Canvas" Draw="Canvas_Draw" CreateResources="Canvas_CreateResources" SizeChanged="Canvas_SizeChanged"
+                                  PointerPressed="Canvas_PointerPressed" PointerMoved="Canvas_PointerMoved" PointerReleased="Canvas_PointerReleased"
+                                  PointerCanceled="Canvas_PointerReleased" PointerCaptureLost="Canvas_PointerReleased" PointerWheelChanged="Canvas_PointerWheelChanged"
+                                  ManipulationMode="TranslateX,TranslateY,Scale,TranslateInertia" ManipulationDelta="Canvas_ManipulationDelta"
+                                  ClearColor="Transparent" UseSharedDevice="True" />
+            <!-- Esri attribution (required by the Location Platform terms) and the status line. -->
+            <Grid VerticalAlignment="Bottom" Padding="8,4" Background="#80FFFFFF" RequestedTheme="Light">
+                <TextBlock x:Name="StatusText" FontFamily="Consolas" FontSize="11" Foreground="#2B2A28" VerticalAlignment="Center" />
+                <TextBlock x:Name="AttributionText" FontSize="10" Foreground="#2B2A28" HorizontalAlignment="Right" VerticalAlignment="Center" />
+            </Grid>
+            <InfoBar x:Name="MapStatus" IsOpen="False" IsClosable="True" VerticalAlignment="Top" Margin="12" />
+        </Grid>
+    </Grid>
+</UserControl>

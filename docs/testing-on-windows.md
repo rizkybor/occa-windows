@@ -46,6 +46,19 @@ installations.
      read-only, so use the environment variable.
 4. Light/dark follows the system setting; the window can be resized and moved between monitors at different DPI.
 
+## C2. What to check in milestone M1 (open and display Mac projects)
+
+1. **Open file** → a `.occa` from Mac/iPad. It is imported into `%LOCALAPPDATA%\OCCA\Projects` and opened on the map.
+   `tests/Occa.Core.Tests/Fixtures/symbol-display.occa` shows every kind of ISOM symbol: solid and pattern areas,
+   an area with a hole, contour (curved), dashed footpath, double-line road, cliff tags, wall dots, fence tags,
+   power-line bars, a boulder, a bush (green dot with white centre) and a rotated, enlarged slope line.
+2. The satellite basemap (Esri World Imagery) appears under the objects inside the A4 frame; the opacity slider
+   fades it to paper; the toggle hides it. Tiles are cached in `%LOCALAPPDATA%\OCCA\TileCache`.
+3. Mouse: drag pans, wheel pans, Ctrl+wheel zooms at the pointer; touch: two fingers pan, pinch zooms; Ctrl+0 or the
+   fit button zooms to the map area.
+4. Back to **Projects**: the card shows a preview, scale chip, name, technical summary and dates.
+5. Compare with the Mac app: open the same `.occa` on both; the objects, colours, dashes and patterns must match.
+
 ## D. Logs and failures
 
 - The CI run's *Core tests* job uploads `test-results/core.trx` (open in Visual Studio or any TRX viewer).

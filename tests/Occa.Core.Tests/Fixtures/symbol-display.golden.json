@@ -1,0 +1,323 @@
+{
+  "features" : [
+    {
+      "colorPriority" : 39,
+      "flattenedCount" : 6,
+      "flattenedSumX" : 1800,
+      "flattenedSumY" : 1200,
+      "hasDecoration" : false,
+      "hidesMainLine" : false,
+      "id" : "00000000-0000-4000-8000-000000000001",
+      "isPatternOnly" : false,
+      "patternSeed" : "16384",
+      "ringCount" : 1
+    },
+    {
+      "colorPriority" : 39,
+      "flattenedCount" : 6,
+      "flattenedSumX" : 1200,
+      "flattenedSumY" : 1100,
+      "hasDecoration" : false,
+      "hidesMainLine" : false,
+      "id" : "00000000-0000-4000-8000-000000000002",
+      "isPatternOnly" : false,
+      "patternCount" : 1,
+      "patternMarks" : [
+        558
+      ],
+      "patternSeed" : "16384",
+      "patternSumX" : [
+        139655.0784
+      ],
+      "patternSumY" : [
+        126247.1955
+      ],
+      "patternTint" : [
+        0.3068
+      ],
+      "ringCount" : 2
+    },
+    {
+      "colorPriority" : 22,
+      "flattenedCount" : 6,
+      "flattenedSumX" : 3600,
+      "flattenedSumY" : 1200,
+      "hasDecoration" : false,
+      "hidesMainLine" : false,
+      "id" : "00000000-0000-4000-8000-000000000003",
+      "isPatternOnly" : true,
+      "patternCount" : 1,
+      "patternMarks" : [
+        67
+      ],
+      "patternSeed" : "16384",
+      "patternSumX" : [
+        87100
+      ],
+      "patternSumY" : [
+        33165
+      ],
+      "patternTint" : [
+        0.3333
+      ],
+      "ringCount" : 1
+    },
+    {
+      "colorPriority" : 4,
+      "flattenedCount" : 6,
+      "flattenedSumX" : 1200,
+      "flattenedSumY" : 2720,
+      "hasDecoration" : false,
+      "hidesMainLine" : false,
+      "id" : "00000000-0000-4000-8000-000000000004",
+      "isPatternOnly" : true,
+      "patternCount" : 1,
+      "patternMarks" : [
+        210
+      ],
+      "patternSeed" : "16384",
+      "patternSumX" : [
+        157370.4116
+      ],
+      "patternSumY" : [
+        303667.7927
+      ],
+      "patternTint" : [
+        0.1349
+      ],
+      "ringCount" : 1
+    },
+    {
+      "colorPriority" : 11,
+      "flattenedCount" : 25,
+      "flattenedSumX" : 11250,
+      "flattenedSumY" : 2500,
+      "hasDecoration" : false,
+      "hidesMainLine" : false,
+      "id" : "00000000-0000-4000-8000-000000000005",
+      "isPatternOnly" : false,
+      "patternSeed" : "16384",
+      "ringCount" : 1
+    },
+    {
+      "colorPriority" : 4,
+      "effectiveDashMM" : [
+        2,
+        0.25
+      ],
+      "flattenedCount" : 2,
+      "flattenedSumX" : 900,
+      "flattenedSumY" : 1020,
+      "hasDecoration" : false,
+      "hidesMainLine" : false,
+      "id" : "00000000-0000-4000-8000-000000000006",
+      "isPatternOnly" : false,
+      "patternSeed" : "16384",
+      "ringCount" : 1
+    },
+    {
+      "casingPriority" : 19,
+      "colorPriority" : 17,
+      "flattenedCount" : 3,
+      "flattenedSumX" : 1350,
+      "flattenedSumY" : 900,
+      "hasDecoration" : false,
+      "hidesMainLine" : false,
+      "id" : "00000000-0000-4000-8000-000000000007",
+      "isPatternOnly" : false,
+      "patternSeed" : "16384",
+      "ringCount" : 1
+    },
+    {
+      "colorPriority" : 4,
+      "decorationMarks" : 35,
+      "decorationSumX" : 50584.8572,
+      "decorationSumY" : 33295.6298,
+      "flattenedCount" : 3,
+      "flattenedSumX" : 2150,
+      "flattenedSumY" : 1420,
+      "hasDecoration" : true,
+      "hidesMainLine" : false,
+      "id" : "00000000-0000-4000-8000-000000000008",
+      "isPatternOnly" : false,
+      "patternSeed" : "16384",
+      "ringCount" : 1
+    },
+    {
+      "colorPriority" : 4,
+      "decorationMarks" : 10,
+      "decorationSumX" : 6500,
+      "decorationSumY" : 5550,
+      "flattenedCount" : 2,
+      "flattenedSumX" : 1300,
+      "flattenedSumY" : 1110,
+      "hasDecoration" : true,
+      "hidesMainLine" : false,
+      "id" : "00000000-0000-4000-8000-000000000009",
+      "isPatternOnly" : false,
+      "patternSeed" : "16384",
+      "ringCount" : 1
+    },
+    {
+      "colorPriority" : 4,
+      "decorationMarks" : 18,
+      "decorationSumX" : 829.8986,
+      "decorationSumY" : 10863.45,
+      "flattenedCount" : 2,
+      "flattenedSumX" : 40,
+      "flattenedSumY" : 600,
+      "hasDecoration" : true,
+      "hidesMainLine" : false,
+      "id" : "00000000-0000-4000-8000-000000000010",
+      "isPatternOnly" : false,
+      "patternSeed" : "16384",
+      "ringCount" : 1
+    },
+    {
+      "colorPriority" : 4,
+      "decorationMarks" : 3,
+      "decorationSumX" : 1900,
+      "decorationSumY" : 3510,
+      "flattenedCount" : 3,
+      "flattenedSumX" : 950,
+      "flattenedSumY" : 1755,
+      "hasDecoration" : true,
+      "hidesMainLine" : false,
+      "id" : "00000000-0000-4000-8000-000000000011",
+      "isPatternOnly" : false,
+      "patternSeed" : "16384",
+      "ringCount" : 1
+    },
+    {
+      "colorPriority" : 4,
+      "flattenedCount" : 1,
+      "flattenedSumX" : 450,
+      "flattenedSumY" : 450,
+      "hasDecoration" : false,
+      "hidesMainLine" : false,
+      "id" : "00000000-0000-4000-8000-000000000012",
+      "isPatternOnly" : false,
+      "patternSeed" : "16384",
+      "pointRadiusM" : 3,
+      "ringCount" : 1,
+      "scaledPointElementCount" : 1,
+      "scaledPointSumX" : 0,
+      "scaledPointSumY" : 0
+    },
+    {
+      "colorPriority" : 7,
+      "flattenedCount" : 1,
+      "flattenedSumX" : 650,
+      "flattenedSumY" : 250,
+      "hasDecoration" : false,
+      "hidesMainLine" : false,
+      "id" : "00000000-0000-4000-8000-000000000013",
+      "isPatternOnly" : false,
+      "patternSeed" : "16384",
+      "pointRadiusM" : 4.5,
+      "ringCount" : 1,
+      "scaledPointElementCount" : 2,
+      "scaledPointSumX" : 0,
+      "scaledPointSumY" : 0
+    },
+    {
+      "colorPriority" : 11,
+      "flattenedCount" : 1,
+      "flattenedSumX" : 250,
+      "flattenedSumY" : 90,
+      "hasDecoration" : false,
+      "hidesMainLine" : false,
+      "id" : "00000000-0000-4000-8000-000000000014",
+      "isPatternOnly" : false,
+      "patternSeed" : "16384",
+      "pointRadiusM" : 10.575,
+      "ringCount" : 1,
+      "scaledPointElementCount" : 1,
+      "scaledPointSumX" : -0.4243,
+      "scaledPointSumY" : -0.4243
+    }
+  ],
+  "paintOrder" : [
+    {
+      "index" : 0,
+      "part" : "whole",
+      "priority" : 39
+    },
+    {
+      "index" : 1,
+      "part" : "whole",
+      "priority" : 39
+    },
+    {
+      "index" : 2,
+      "part" : "whole",
+      "priority" : 22
+    },
+    {
+      "index" : 6,
+      "part" : "casing",
+      "priority" : 19
+    },
+    {
+      "index" : 6,
+      "part" : "main",
+      "priority" : 17
+    },
+    {
+      "index" : 4,
+      "part" : "whole",
+      "priority" : 11
+    },
+    {
+      "index" : 13,
+      "part" : "whole",
+      "priority" : 11
+    },
+    {
+      "index" : 12,
+      "part" : "elements:8",
+      "priority" : 8
+    },
+    {
+      "index" : 12,
+      "part" : "elements:7",
+      "priority" : 7
+    },
+    {
+      "index" : 3,
+      "part" : "whole",
+      "priority" : 4
+    },
+    {
+      "index" : 5,
+      "part" : "whole",
+      "priority" : 4
+    },
+    {
+      "index" : 7,
+      "part" : "whole",
+      "priority" : 4
+    },
+    {
+      "index" : 8,
+      "part" : "whole",
+      "priority" : 4
+    },
+    {
+      "index" : 9,
+      "part" : "whole",
+      "priority" : 4
+    },
+    {
+      "index" : 10,
+      "part" : "whole",
+      "priority" : 4
+    },
+    {
+      "index" : 11,
+      "part" : "whole",
+      "priority" : 4
+    }
+  ],
+  "unitsPerMM" : 15
+}
