@@ -59,6 +59,16 @@ installations.
 4. Back to **Projects**: the card shows a preview, scale chip, name, technical summary and dates.
 5. Compare with the Mac app: open the same `.occa` on both; the objects, colours, dashes and patterns must match.
 
+## C3. What to check in milestone M3 (output and import)
+
+1. Open a project → **Export** (Ctrl+E). PDF: open in Acrobat/Edge; Acrobat's *Geospatial location* tool shows
+   lat/lon; colours are CMYK (check with Acrobat *Output preview*). Compare with the Mac PDF of the same `.occa`.
+2. PNG/TIFF/JPEG at 300 dpi: an A4 export is 2480×3508 px (portrait) and comes with a world file (.pgw/.tfw/.jgw)
+   and .prj; open in QGIS to confirm the position.
+3. OMAP: open in OpenOrienteering Mapper; DXF: open in QGIS or OCAD; objects keep their symbol codes.
+4. **Open file** with an `.ocd` (OCAD 10–2018) or `.omap`/`.xmap`: a new project appears, centred on the content.
+   OCAD files ask for the UTM zone first.
+
 ## D. Logs and failures
 
 - The CI run's *Core tests* job uploads `test-results/core.trx` (open in Visual Studio or any TRX viewer).
