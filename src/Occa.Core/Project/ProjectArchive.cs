@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using System.Text;
 using Occa.Core.Compression;
+using LzfseDecoderCompanion = Occa.Core.Compression.LzfseEncoder;
 
 namespace Occa.Core.Project;
 
@@ -42,6 +43,53 @@ public static class ProjectArchive
     }
 
     public static IReadOnlyDictionary<string, byte[]> ReadEntries(string path) => ReadEntries(File.ReadAllBytes(path));
+
+    // MARK: Save
+
+    /// <summary>
+    /// Packs (path, data) entries into a <c>.occa</c>: magic + LZFSE payload of the entries sorted by path, as
+    /// <c>ProjectArchive.encode</c> on Mac. Paths are validated; the per-device imagery cache is skipped.
+    /// </summary>
+    public static byte[] Pack(IEnumerable<KeyValuePair<string, byte[]>> entries)
+    {
+        var sorted = entries.Where(e => !e.Key.StartsWith(ImageryFolder + "/", StringComparison.Ordinal))
+            .OrderBy(e => e.Key, StringComparer.Ordinal).ToList();
+        if (!sorted.Any(e => e.Key == ProjectFileName)) throw new ProjectArchiveException(ProjectArchiveError.MissingProject, "Project file does not contain project.json.");
+        foreach (var e in sorted) ValidatePath(e.Key);
+        using var payload = new MemoryStream();
+        Span<byte> buf = stackalloc byte[8];
+        BinaryPrimitives.WriteUInt32LittleEndian(buf, (uint)sorted.Count);
+        payload.Write(buf.Slice(0, 4));
+        foreach (var (path, data) in sorted)
+        {
+            var p = Encoding.UTF8.GetBytes(path);
+            BinaryPrimitives.WriteUInt32LittleEndian(buf, (uint)p.Length);
+            payload.Write(buf.Slice(0, 4));
+            payload.Write(p);
+            BinaryPrimitives.WriteUInt64LittleEndian(buf, (ulong)data.Length);
+            payload.Write(buf);
+            payload.Write(data);
+        }
+        var compressed = LzfseDecoderCompanion.Encode(payload.ToArray());
+        var result = new byte[Magic.Length + compressed.Length];
+        Magic.CopyTo(result, 0);
+        compressed.CopyTo(result, Magic.Length);
+        return result;
+    }
+
+    /// <summary>Packs every regular file of a package folder (recursively), skipping hidden files and the imagery cache.</summary>
+    public static byte[] Pack(string folder)
+    {
+        var entries = new List<KeyValuePair<string, byte[]>>();
+        var root = Path.GetFullPath(folder);
+        foreach (var file in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories))
+        {
+            var rel = Path.GetRelativePath(root, file).Replace(Path.DirectorySeparatorChar, '/');
+            if (rel.Split('/').Any(part => part.StartsWith('.'))) continue;
+            entries.Add(new KeyValuePair<string, byte[]>(rel, File.ReadAllBytes(file)));
+        }
+        return Pack(entries);
+    }
 
     internal static Dictionary<string, byte[]> Decode(ReadOnlySpan<byte> archive, ReadOnlySpan<byte> magic)
     {
