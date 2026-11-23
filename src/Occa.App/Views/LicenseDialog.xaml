@@ -7,8 +7,9 @@
     CloseButtonText="Close"
     DefaultButton="Close">
 
-    <ScrollViewer MaxHeight="620" VerticalScrollBarVisibility="Auto">
-        <StackPanel Spacing="14" MinWidth="520" MaxWidth="560">
+    <!-- No fixed height: the dialog is capped by the window (ContentDialogMaxHeight) and this ScrollViewer scrolls. -->
+    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,0,4,0">
+        <StackPanel Spacing="14" MinWidth="500" MaxWidth="540">
             <InfoBar x:Name="LockedNotice" IsOpen="False" IsClosable="False" Severity="Informational" />
             <InfoBar x:Name="MessageBar" IsOpen="False" IsClosable="True" Severity="Informational" />
 

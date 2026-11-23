@@ -52,8 +52,10 @@ Key code paths:
 - Package files: `project.json`, `strokes.json`, `features.json`, `courses.json`, `field.json` (envelopes
   `{version, <key>}` except `project.json`), optional `thumbnail.jpg`, `course-images/`, `field-photos/`, `imagery/`
   (per-device cache, excluded from `.occa`).
-- Basemap: `Occa.Core/Basemap/EsriWorldImagery.cs`, `WebMercator.cs`, `TileCache.cs` (honours HTTP caching headers);
-  app config in `Occa.App/AppSettings.cs`.
+- Basemap: `Occa.Core/Basemap/EsriWorldImagery.cs` (`MaxTileZoom` 19: deeper levels are scaled up), `WebMercator.cs`,
+  `TileCache.cs` (honours HTTP caching headers); `Occa.Render/BasemapLayer.cs` draws cached ancestor tiles while a tile
+  loads and retries failed tiles after 8 s. App config in `Occa.App/AppSettings.cs`. UserControl `Background` is not
+  painted by WinUI: panels set it on their root Grid.
 - Models (ported 1:1 from CakraCore, same JSON): `Occa.Core/Project/Project.cs` + `ProjectPackage.cs`,
   `Vector/Feature.cs`, `Stroke.cs`, `Symbols.cs` (MapSymbol, AreaPattern, LineDecoration, OccaSymbolFile),
   `Sheet/MapSheet.cs`, `Geometry/Utm.cs`. All models carry `[JsonExtensionData]` for unknown fields.
@@ -95,7 +97,8 @@ Key code paths:
 - Editing UI (M6 = beta readiness; the deferred M2 UI): `Vector/EditHistory.cs` (undo/redo of whole-document snapshots,
   `SymbolFeatures` builds line/area/point objects from a `MapSymbol` with the Mac's default names), `Feature.SetWidth`.
   App: `Views/NewProjectDialog.xaml` (name, scale, A4 orientation, start lat/lon → Select Area mode), `Views/SymbolPanel.xaml`
-  (built-in set of the sheet standard, search, "Apply to selection"), `Occa.Render/SelectionRenderer.cs`, and the tools in
+  (built-in set of the sheet standard, search, "Apply to selection"; row samples from `Occa.Render/SymbolPreviewRenderer.cs`,
+  the Mac's SymbolSwatch drawn with MapRenderer), `Occa.Render/SelectionRenderer.cs`, and the tools in
   `Views/MapView.xaml(.cs)`: Navigate H, Move V, Node A, Pen P, Freehand F, Rectangle M, Ellipse L, Point T, Sketch N, Eraser E;
   Esc/Enter/Delete, Ctrl+Z/Y/S/D/A, right-click menu, drag moves objects/points/handles, autosave 600 ms, thumbnail on
   save. Select Area mode: frame follows the view centre and the UTM zone follows the location until "Lock area". FR-W4 window
@@ -110,7 +113,7 @@ Key code paths:
   timer, `Require(feature)` opens `Views/LicenseDialog.xaml`), `UpdateChecker.cs`; gates in MainWindow (project limit,
   map import), MapView (contours, course import, IOF XML, raster/vector export, PDF credit on Starter), CoursePanel
   (course limit). Debug builds are Lifetime unless started with `--license key`; `--license-api <url>` / `OCCA_LICENSE_API`
-  pick the server. HRIS still needs the Windows platform (digit 7, `Windows` request value): see `docs/licensing-windows.md`.
+  pick the server. HRIS has the `windows` platform (digit 7, `Windows` request value) since 23 Nov 2026 (`hris-api-main`, migration `2026_11_23_000001`): see `docs/licensing-windows.md`.
 - Rendering of M4: `Occa.Render/CourseOverprintRenderer.cs` (pixel space; on screen with 90 % alpha, exports place
   lower/upper purple in the colour order through `MapRenderer.Draw(..., belowPriority, drawBelow)`),
   `ContourRenderer.cs`; `MapScene.Item.Priority` carries the colour priority. App: `Views/CoursePanel.xaml`,

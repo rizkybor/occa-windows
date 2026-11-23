@@ -70,14 +70,27 @@ public sealed class UserSettings
 /// <summary>Brushes from Themes/Tokens.xaml looked up from code; a missing key gives a transparent brush instead of a crash.</summary>
 public static class ThemeBrushes
 {
-    public static Microsoft.UI.Xaml.Media.Brush Get(string key)
+    /// <summary>The brush for the app theme (OS setting).</summary>
+    public static Microsoft.UI.Xaml.Media.Brush Get(string key) => Get(key, Microsoft.UI.Xaml.ElementTheme.Default);
+
+    /// <summary>
+    /// The brush for an element's theme: the in-app Appearance choice (Light / Dark) differs from the OS theme, and
+    /// code-created brushes do not follow <c>{ThemeResource}</c>, so callers pass the element's <c>ActualTheme</c>.
+    /// </summary>
+    public static Microsoft.UI.Xaml.Media.Brush Get(string key, Microsoft.UI.Xaml.ElementTheme elementTheme)
     {
         try
         {
             var app = Microsoft.UI.Xaml.Application.Current;
-            if (app.Resources.TryGetValue(key, out var value) && value is Microsoft.UI.Xaml.Media.Brush brush) return brush;
-            // Code lookups do not always walk ThemeDictionaries: look in the active theme's dictionary of each merged file.
-            var theme = app.RequestedTheme == Microsoft.UI.Xaml.ApplicationTheme.Dark ? "Default" : "Light";
+            bool dark = elementTheme switch
+            {
+                Microsoft.UI.Xaml.ElementTheme.Dark => true,
+                Microsoft.UI.Xaml.ElementTheme.Light => false,
+                _ => app.RequestedTheme == Microsoft.UI.Xaml.ApplicationTheme.Dark,
+            };
+            if (elementTheme == Microsoft.UI.Xaml.ElementTheme.Default && app.Resources.TryGetValue(key, out var value) && value is Microsoft.UI.Xaml.Media.Brush brush) return brush;
+            // Code lookups do not walk ThemeDictionaries for a given theme: look in that theme's dictionary of each merged file.
+            var theme = dark ? "Default" : "Light";
             foreach (var merged in app.Resources.MergedDictionaries)
             {
                 if (merged.ThemeDictionaries.TryGetValue(theme, out var dict) && dict is Microsoft.UI.Xaml.ResourceDictionary rd

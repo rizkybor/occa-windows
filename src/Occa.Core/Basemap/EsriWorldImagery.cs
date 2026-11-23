@@ -15,8 +15,15 @@ public sealed class EsriWorldImagery
 
     public const string ApiKeyEnvironmentVariable = "OCCA_ESRI_API_KEY";
 
-    /// <summary>World Imagery is served down to level 23 in most places; higher levels return no tile.</summary>
+    /// <summary>The deepest level the tile URL accepts (validation only).</summary>
     public const int MaxZoom = 23;
+
+    /// <summary>
+    /// The deepest level the app requests: World Imagery has level 19 nearly everywhere (about 0.3 m per pixel), while
+    /// levels 20–23 exist only in some cities and answer 404 elsewhere. Zoomed in further, the level-19 tiles are
+    /// scaled up, which is what the Mac app does too.
+    /// </summary>
+    public const int MaxTileZoom = 19;
 
     private readonly HttpClient _http;
     private readonly string _apiKey;

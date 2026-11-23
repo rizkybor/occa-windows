@@ -212,10 +212,16 @@ public sealed partial class MapView : UserControl
         }
     }
 
+    /// <summary>Writes a pending autosave at once (window closing, back to the list).</summary>
+    public void FlushSave()
+    {
+        if (_saveTimer is { IsRunning: true }) { _saveTimer.Stop(); SaveNow(); }
+    }
+
     private void Close()
     {
         // Pending edits of the project being closed are written now.
-        if (_saveTimer is { IsRunning: true }) { _saveTimer.Stop(); SaveNow(); }
+        FlushSave();
         _contourJob?.Cancel();
         _basemap?.Dispose();
         _basemap = null;
@@ -349,7 +355,7 @@ public sealed partial class MapView : UserControl
         // Screen scale: metres per CSS pixel at 96 dpi expressed as a map scale.
         double screenScale = 1 / _view.PixelsPerMeter / 0.0254 * 96;
         var mode = IsSelectingArea ? "   ·   select area" : $"   ·   {ToolLabel(_tool)}" + (Symbols.ActiveSymbol is { } s && _tool is Tool.Pen or Tool.Freehand or Tool.Rectangle or Tool.Ellipse or Tool.Point ? $" · {s.Code} {s.Name}" : "");
-        if (Courses.Visibility == Visibility.Visible && Courses.PlaceKind is { } k) mode = $"   ·   click to place {k.Label().ToLowerInvariant()}";
+        if (CourseEditing) mode = Courses.PlaceKind is { } k ? $"   ·   click to place {k.Label().ToLowerInvariant()}" : "   ·   course planning: click a control to select, drag to move";
         var selection = _selected.Count > 0 ? $"   ·   {_selected.Count} selected" : "";
         StatusText.Text = $"{coords}   ·   1:{_doc.Project.Sheet.ScaleDenominator} map, screen ≈ 1:{screenScale:F0}   ·   {_doc.ObjectCount} objects{selection}"
                           + (_basemap is { PendingTiles: > 0 } b ? $"   ·   loading {b.PendingTiles} tiles" : "") + mode;
@@ -373,6 +379,10 @@ public sealed partial class MapView : UserControl
         Courses.Visibility = CoursesToggle.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
         Contours.Visibility = ContoursToggle.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
         if (Courses.Visibility != Visibility.Visible) Courses.ClearPlacement();
+        // With the Courses panel open, clicks on the map place / move controls; the drawing tools pause.
+        ToolRail.IsEnabled = !CourseEditing;
+        ToolRail.Opacity = CourseEditing ? 0.5 : 1;
+        if (!CourseEditing) Canvas.Focus(FocusState.Programmatic);
         Canvas.Invalidate();
     }
 
@@ -386,7 +396,8 @@ public sealed partial class MapView : UserControl
         AreaBar.Visibility = selecting ? Visibility.Visible : Visibility.Collapsed;
         ToolRail.Visibility = selecting ? Visibility.Collapsed : Visibility.Visible;
         ExportButton.IsEnabled = !selecting;
-        foreach (var t in new[] { SymbolsToggle, CoursesToggle, ContoursToggle }) t.IsEnabled = !selecting;
+        foreach (var t in new[] { SymbolsToggle, CoursesToggle, ContoursToggle }) { t.IsEnabled = !selecting; if (selecting) t.IsChecked = false; }
+        if (selecting) UpdatePanels();
         if (selecting && _doc is not null) { _tool = Tool.Navigate; SyncToolButtons(); }
         if (selecting && _zone is { } z && _doc?.Project.Frame is { } frame) GoToBox.Text = Format(z.Unproject(frame.Center));
     }
@@ -454,6 +465,8 @@ public sealed partial class MapView : UserControl
     {
         var tag = ((ToggleButton)sender).Tag as string ?? "Navigate";
         SetTool(Enum.TryParse<Tool>(tag, out var t) ? t : Tool.Navigate);
+        // Keys (Esc, Enter, Delete, the tool letters) go to the map, not to the clicked button.
+        Canvas.Focus(FocusState.Programmatic);
     }
 
     private void SetTool(Tool tool)
@@ -499,11 +512,19 @@ public sealed partial class MapView : UserControl
     private const string SketchColor = "#000000";
     private const double SketchWidthMM = 0.25;
 
-    private void Canvas_KeyDown(object sender, KeyRoutedEventArgs e)
+    /// <summary>True while a text field (panel, Go to box) has the keyboard: tool keys and Ctrl shortcuts then belong to it.</summary>
+    private bool TextInputFocused => FocusManager.GetFocusedElement(XamlRoot) is TextBox or RichEditBox or AutoSuggestBox or NumberBox or ComboBox or PasswordBox;
+
+    /// <summary>
+    /// Tool keys work wherever the focus is inside the map view (a clicked tool button, the panel background, the
+    /// canvas), as on the Mac, except while typing in a field.
+    /// </summary>
+    private void Root_KeyDown(object sender, KeyRoutedEventArgs e)
     {
-        if (_doc is null) return;
+        if (_doc is null || TextInputFocused) return;
         bool ctrl = (InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control) & Windows.UI.Core.CoreVirtualKeyStates.Down) != 0;
         if (ctrl) return;   // Ctrl shortcuts are accelerators
+        if (CourseEditing && e.Key != VirtualKey.Escape) return;   // controls are deleted from the panel, tools pause
         e.Handled = true;
         switch (e.Key)
         {
@@ -572,13 +593,14 @@ public sealed partial class MapView : UserControl
 
     private void Undo_Click(object sender, RoutedEventArgs e) => Restore(_history.Undo());
     private void Redo_Click(object sender, RoutedEventArgs e) => Restore(_history.Redo());
-    private void Undo_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args) { Restore(_history.Undo()); args.Handled = true; }
-    private void Redo_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args) { Restore(_history.Redo()); args.Handled = true; }
+    // Ctrl+Z/Y/D/A inside a text field edit the text, not the map (the accelerator is left unhandled so the field gets it).
+    private void Undo_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args) { if (TextInputFocused) return; Restore(_history.Undo()); args.Handled = true; }
+    private void Redo_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args) { if (TextInputFocused) return; Restore(_history.Redo()); args.Handled = true; }
     private void Save_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args) { _saveTimer?.Stop(); SaveNow(); Show(InfoBarSeverity.Success, "Saved", "The project was saved."); args.Handled = true; }
-    private void Duplicate_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args) { DuplicateSelection(); args.Handled = true; }
+    private void Duplicate_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args) { if (TextInputFocused) return; DuplicateSelection(); args.Handled = true; }
     private void SelectAll_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
-        if (_doc is null || IsSelectingArea) return;
+        if (_doc is null || IsSelectingArea || TextInputFocused || CourseEditing) return;
         _selected.Clear();
         foreach (var f in _doc.Features.Where(f => f.IsVisible)) _selected.Add(f.Id);
         if (_tool is not (Tool.Select or Tool.Node)) SetTool(Tool.Select); else { SyncToolButtons(); Canvas.Invalidate(); }
@@ -1345,13 +1367,16 @@ public sealed partial class MapView : UserControl
         e.Handled = true;
     }
 
-    private void Canvas_RightTapped(object sender, RightTappedRoutedEventArgs e)
+    /// <summary>Right-click: select the object under the pointer and show the menu; no menu in Select Area mode, course planning or on empty paper.</summary>
+    private void Canvas_ContextRequested(UIElement sender, ContextRequestedEventArgs e)
     {
-        if (_doc is null || IsSelectingArea) { e.Handled = true; return; }
-        var pos = e.GetPosition(Canvas);
-        var m = _view.Unproject(pos.X, pos.Y);
-        var hit = FeatureAt(m);
-        if (hit is not null && !_selected.Contains(hit.Id)) { _selected.Clear(); _selected.Add(hit.Id); SyncToolButtons(); Canvas.Invalidate(); }
+        if (_doc is null || IsSelectingArea || CourseEditing) { e.Handled = true; return; }
+        if (e.TryGetPosition(Canvas, out var pos))
+        {
+            var m = _view.Unproject(pos.X, pos.Y);
+            var hit = FeatureAt(m);
+            if (hit is not null && !_selected.Contains(hit.Id)) { _selected.Clear(); _selected.Add(hit.Id); SyncToolButtons(); Canvas.Invalidate(); }
+        }
         if (_selected.Count == 0) e.Handled = true;   // nothing to act on: no menu
     }
 

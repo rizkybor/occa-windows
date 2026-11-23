@@ -9,7 +9,9 @@
     BorderBrush="{ThemeResource CpLine}"
     BorderThickness="1,0,0,0">
 
-    <Grid>
+    <!-- The Background is on the Grid: a UserControl does not paint its own Background, and the panel must cover the
+         project list behind the map view. -->
+    <Grid Background="{ThemeResource CpPaper2}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -39,14 +41,15 @@
         <ListView Grid.Row="2" x:Name="SymbolList" SelectionMode="Single" SelectionChanged="SymbolList_SelectionChanged" Padding="4,0">
             <ListView.ItemTemplate>
                 <DataTemplate x:DataType="local:SymbolRow">
-                    <Grid ColumnSpacing="10" Padding="0,5">
+                    <Grid ColumnSpacing="10" Padding="0,4">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="26" />
+                            <ColumnDefinition Width="34" />
                             <ColumnDefinition Width="54" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-                        <Border Width="22" Height="22" CornerRadius="5" Background="{x:Bind Swatch}" BorderBrush="{ThemeResource CpLine}" BorderThickness="1" VerticalAlignment="Center">
-                            <FontIcon Glyph="{x:Bind Glyph}" FontSize="11" Foreground="{x:Bind Ink}" />
+                        <!-- The symbol as it prints (SymbolSwatch on Mac): always on light map paper, also in dark mode. -->
+                        <Border Width="34" Height="28" CornerRadius="4" Background="#FBF9F4" BorderBrush="#24000000" BorderThickness="1" VerticalAlignment="Center">
+                            <Image Source="{x:Bind Preview}" Stretch="Uniform" Width="32" Height="26" />
                         </Border>
                         <TextBlock Grid.Column="1" Text="{x:Bind Code}" FontFamily="Consolas" FontSize="12" VerticalAlignment="Center" />
                         <TextBlock Grid.Column="2" Text="{x:Bind Name}" FontSize="13" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />

@@ -126,7 +126,7 @@ public sealed class AppLicense
         _dialogOpen = true;
         try
         {
-            var dialog = new LicenseDialog(this, feature) { XamlRoot = _xamlRoot, RequestedTheme = _theme };
+            var dialog = new LicenseDialog(this, feature, _theme) { XamlRoot = _xamlRoot };
             await dialog.ShowAsync();
         }
         finally { _dialogOpen = false; }

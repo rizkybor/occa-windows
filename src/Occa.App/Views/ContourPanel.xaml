@@ -17,7 +17,7 @@
         </Style>
     </UserControl.Resources>
 
-    <Grid>
+    <Grid Background="{ThemeResource CpPaper2}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />

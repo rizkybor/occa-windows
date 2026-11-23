@@ -1,4 +1,3 @@
-using System.Runtime.InteropServices.WindowsRuntime;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -9,7 +8,6 @@ using Occa.Core.Basemap;
 using Occa.Core.License;
 using Occa.Core.Project;
 using Windows.Storage.Pickers;
-using Windows.Storage.Streams;
 
 namespace Occa.App;
 
@@ -29,10 +27,24 @@ public sealed partial class MainWindow : Window
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
         AppWindow.SetIcon("Assets/occa.ico");
-        // FR-W4: the main window needs at least 1100×760; start a little larger, or where it was last time.
-        if (_settings is { WindowWidth: int w, WindowHeight: int h, WindowX: int x, WindowY: int y } && w >= 1100 && h >= 760)
+        // FR-W4: start at 1280×820 (physical pixels) or where the window was last time, never larger than the display's
+        // work area and never off-screen (a monitor may have been unplugged since). Sizes are clamped so a 1366×768
+        // laptop at 125 % gets a window that fits with the taskbar.
+        var work = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Primary).WorkArea;
+        int minW = Math.Min(1000, work.Width), minH = Math.Min(640, work.Height);
+        if (_settings is { WindowWidth: int w, WindowHeight: int h, WindowX: int x, WindowY: int y } && w >= minW && h >= minH
+            && DisplayArea.GetFromRect(new Windows.Graphics.RectInt32(x, y, w, h), DisplayAreaFallback.None) is { } area)
+        {
+            var wa = area.WorkArea;
+            w = Math.Min(w, wa.Width); h = Math.Min(h, wa.Height);
+            x = Math.Clamp(x, wa.X, Math.Max(wa.X, wa.X + wa.Width - w)); y = Math.Clamp(y, wa.Y, Math.Max(wa.Y, wa.Y + wa.Height - h));
             AppWindow.MoveAndResize(new Windows.Graphics.RectInt32(x, y, w, h));
-        else AppWindow.Resize(new Windows.Graphics.SizeInt32(1280, 820));
+        }
+        else
+        {
+            int dw = Math.Min(1280, work.Width - 40), dh = Math.Min(820, work.Height - 40);
+            AppWindow.MoveAndResize(new Windows.Graphics.RectInt32(work.X + (work.Width - dw) / 2, work.Y + (work.Height - dh) / 2, dw, dh));
+        }
         AppWindow.Changed += (_, e) =>
         {
             if ((!e.DidSizeChange && !e.DidPositionChange) || AppWindow.Presenter is OverlappedPresenter { State: not OverlappedPresenterState.Restored }) return;
@@ -42,9 +54,11 @@ public sealed partial class MainWindow : Window
         };
         if (AppWindow.Presenter is OverlappedPresenter presenter)
         {
-            presenter.PreferredMinimumWidth = 1100;
-            presenter.PreferredMinimumHeight = 760;
+            presenter.PreferredMinimumWidth = minW;
+            presenter.PreferredMinimumHeight = minH;
         }
+        // Pending autosave of the open project is written before the process ends.
+        Closed += (_, _) => { Map.FlushSave(); try { _settings.Save(); } catch (Exception) { } };
         TaglineText.Text = AppInfo.Tagline;
         Map.WindowHandle = WinRT.Interop.WindowNative.GetWindowHandle(this);
         CreditText.Text = $"{AppInfo.Name} {AppInfo.Year} · {AppInfo.Country} · Supported by";
@@ -144,9 +158,9 @@ public sealed partial class MainWindow : Window
             LicensePlan.Organization => ("CpSkyFill", "CpSandBorder", "CpSkyStrong"),
             _ => ("CpSandFill", "CpSandBorder", "CpSandStrong"),
         };
-        PlanChipBorder.Background = ThemeBrushes.Get(fill);
-        PlanChipBorder.BorderBrush = ThemeBrushes.Get(border);
-        PlanChipText.Foreground = ThemeBrushes.Get(strong);
+        PlanChipBorder.Background = ThemeBrushes.Get(fill, RootGrid.ActualTheme);
+        PlanChipBorder.BorderBrush = ThemeBrushes.Get(border, RootGrid.ActualTheme);
+        PlanChipText.Foreground = ThemeBrushes.Get(strong, RootGrid.ActualTheme);
         var label = engine.WatermarkLabel;
         Watermark.Visibility = label is null ? Visibility.Collapsed : Visibility.Visible;
         WatermarkTitle.Text = $"{AppInfo.Name} {engine.Plan.Title()}";
@@ -174,6 +188,23 @@ public sealed partial class MainWindow : Window
             AppearanceMode.Dark => ElementTheme.Dark,
             _ => ElementTheme.Default,
         };
+        // The system caption buttons (minimise / maximise / close) sit on our title bar: transparent background, ink
+        // of the active theme; otherwise they keep a light box in dark mode.
+        if (AppWindowTitleBar.IsCustomizationSupported())
+        {
+            var tb = AppWindow.TitleBar;
+            bool dark = RootGrid.ActualTheme == ElementTheme.Dark;
+            var ink = dark ? Windows.UI.Color.FromArgb(255, 0xF1, 0xEC, 0xE4) : Windows.UI.Color.FromArgb(255, 0x2B, 0x2A, 0x28);
+            var muted = dark ? Windows.UI.Color.FromArgb(255, 0xA8, 0xA1, 0x96) : Windows.UI.Color.FromArgb(255, 0x6B, 0x66, 0x5E);
+            tb.ButtonBackgroundColor = Microsoft.UI.Colors.Transparent;
+            tb.ButtonInactiveBackgroundColor = Microsoft.UI.Colors.Transparent;
+            tb.ButtonForegroundColor = ink;
+            tb.ButtonInactiveForegroundColor = muted;
+            tb.ButtonHoverBackgroundColor = dark ? Windows.UI.Color.FromArgb(255, 0x3A, 0x37, 0x33) : Windows.UI.Color.FromArgb(255, 0xE3, 0xDD, 0xD2);
+            tb.ButtonHoverForegroundColor = ink;
+            tb.ButtonPressedBackgroundColor = dark ? Windows.UI.Color.FromArgb(255, 0x4A, 0x46, 0x41) : Windows.UI.Color.FromArgb(255, 0xD5, 0xCE, 0xC2);
+            tb.ButtonPressedForegroundColor = ink;
+        }
         AppearanceIcon.Glyph = _settings.Appearance.Glyph();
         ToolTipService.SetToolTip(AppearanceButton, $"Appearance: {_settings.Appearance.Label()} · click for {_settings.Appearance.Next().Label()}");
     }
@@ -183,11 +214,26 @@ public sealed partial class MainWindow : Window
     {
         _settings.Appearance = _settings.Appearance.Next();
         ApplyAppearance();
+        RefreshPlan();   // the chip's brushes are code-created and follow the element theme
         _license.Attach(Content.XamlRoot, RootGrid.RequestedTheme);
         try { _settings.Save(); } catch (Exception ex) { ShowStatus(InfoBarSeverity.Warning, "Settings not saved", ex.Message); }
     }
 
     private void Splash_Finished(object? sender, EventArgs e) => RootGrid.Children.Remove(Splash);
+
+    /// <summary>
+    /// Page width and centring from code (FR-W4): 1280 up to 1700 effective px, 1600 up to 2300, 2000 beyond, centred in
+    /// the window. Set explicitly (Width + left margin) so an over-wide child can never shift the page off centre.
+    /// </summary>
+    private void RootGrid_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        double available = e.NewSize.Width;
+        if (available <= 0) return;
+        double max = available >= 2300 ? 2000 : available >= 1700 ? 1600 : 1280;
+        double width = Math.Min(max, available);
+        Page.Width = width;
+        Page.Margin = new Thickness(Math.Max(0, (available - width) / 2), 0, 0, 0);
+    }
 
     // MARK: Projects
 
@@ -303,56 +349,7 @@ public sealed partial class MainWindow : Window
         return await dialog.ShowAsync() == ContentDialogResult.Primary && box.SelectedIndex >= 0 ? zones[box.SelectedIndex] : null;
     }
 
-    // MARK: Spikes and dialogs
-
-    /// <summary>M0 spike: download one Esri World Imagery tile with the configured API key.</summary>
-    private async void BasemapTest_Click(object sender, RoutedEventArgs e)
-    {
-        var key = App.Settings.EsriApiKey;
-        if (key is null)
-        {
-            ShowStatus(InfoBarSeverity.Warning, "No Esri API key",
-                $"Put the key in appsettings.local.json next to OCCA.exe or set {EsriWorldImagery.ApiKeyEnvironmentVariable}.");
-            return;
-        }
-        try
-        {
-            var imagery = new EsriWorldImagery(App.Http, key, App.Settings.Esri.TileTemplate);
-            // Monas, Jakarta at zoom 17.
-            var (x, y) = WebMercator.TileFor(-6.1754, 106.8272, 17);
-            var tile = await imagery.FetchTileAsync(x, y, 17);
-
-            var bitmap = new BitmapImage();
-            using (var stream = new InMemoryRandomAccessStream())
-            {
-                await stream.WriteAsync(tile.Bytes.AsBuffer());
-                stream.Seek(0);
-                await bitmap.SetSourceAsync(stream);
-            }
-            var dialog = new ContentDialog
-            {
-                Title = $"Esri World Imagery tile {tile.Zoom}/{tile.Y}/{tile.X}",
-                Content = new StackPanel
-                {
-                    Spacing = 8,
-                    Children =
-                    {
-                        new Image { Source = bitmap, Width = 256, Height = 256 },
-                        new TextBlock { Text = $"{tile.MediaType}, {tile.Bytes.Length:N0} bytes, cache max-age {(tile.CacheMaxAge?.ToString() ?? "n/a")}" },
-                        new TextBlock { Text = EsriWorldImagery.Attribution, Opacity = 0.7, TextWrapping = TextWrapping.Wrap },
-                    },
-                },
-                CloseButtonText = "Close",
-                XamlRoot = Content.XamlRoot,
-                RequestedTheme = RootGrid.RequestedTheme,
-            };
-            await dialog.ShowAsync();
-        }
-        catch (Exception ex)
-        {
-            ShowStatus(InfoBarSeverity.Error, "Tile download failed", ex.Message);
-        }
-    }
+    // MARK: Dialogs
 
     private async void About_Click(object sender, RoutedEventArgs e)
     {
@@ -391,7 +388,7 @@ public sealed class ProjectListItem
     public string Summary => Entry.Project.TechnicalSummary;
     public string ScaleLabel => $"1:{Entry.Project.Sheet.ScaleDenominator}";
     public string Dates => $"Created {Entry.Project.CreatedAt.ToLocalTime():d MMM yyyy} · Modified {Entry.Project.UpdatedAt.ToLocalTime():d MMM yyyy}";
-    public BitmapImage? Thumbnail => Entry.HasThumbnail ? new BitmapImage(new Uri(Entry.ThumbnailPath)) : null;
+    public BitmapImage? Thumbnail => Entry.HasThumbnail ? new BitmapImage { CreateOptions = BitmapCreateOptions.IgnoreImageCache, UriSource = new Uri(Entry.ThumbnailPath) } : null;
     public string PreviewLabel => Entry.Project.AreaLocked ? "No preview yet" : "Select a map area or upload a GeoTIFF basemap";
     public Visibility PreviewLabelVisibility => Entry.HasThumbnail ? Visibility.Collapsed : Visibility.Visible;
 

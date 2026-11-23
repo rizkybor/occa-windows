@@ -11,7 +11,7 @@
     <!-- Same structure as ProjectListView on Mac/iPad: paper2 background with a contour motif top-right, header
          (app mark, name, tagline, Open file / New project), the list or the empty state, a credit footer and a
          floating About / Guide / Appearance widget bottom-right. -->
-    <Grid x:Name="RootGrid" Background="{ThemeResource CpPaper2}">
+    <Grid x:Name="RootGrid" Background="{ThemeResource CpPaper2}" SizeChanged="RootGrid_SizeChanged">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -28,7 +28,6 @@
                 <VisualState x:Name="Wide">
                     <VisualState.StateTriggers><AdaptiveTrigger MinWindowWidth="1700" /></VisualState.StateTriggers>
                     <VisualState.Setters>
-                        <Setter Target="Page.MaxWidth" Value="1600" />
                         <Setter Target="Page.Padding" Value="48,32" />
                         <Setter Target="AppNameText.FontSize" Value="28" />
                         <Setter Target="AppSubtitleText.FontSize" Value="15" />
@@ -44,7 +43,6 @@
                 <VisualState x:Name="UltraWide">
                     <VisualState.StateTriggers><AdaptiveTrigger MinWindowWidth="2300" /></VisualState.StateTriggers>
                     <VisualState.Setters>
-                        <Setter Target="Page.MaxWidth" Value="2000" />
                         <Setter Target="Page.Padding" Value="64,40" />
                         <Setter Target="AppNameText.FontSize" Value="32" />
                         <Setter Target="AppSubtitleText.FontSize" Value="17" />
@@ -67,8 +65,10 @@
             <TextBlock x:Name="AppTitleText" Text="OCCA" FontSize="12" VerticalAlignment="Center" Foreground="{ThemeResource CpInkMuted}" />
         </Grid>
 
-        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-            <StackPanel x:Name="Page" Spacing="24" Padding="32,24" MaxWidth="1280" HorizontalAlignment="Stretch">
+        <!-- The page is sized from code (RootGrid_SizeChanged): a child whose desired width exceeds the viewport (long
+             single-line text, the project grid) must never push the whole page sideways. -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel x:Name="Page" Spacing="24" Padding="32,24" HorizontalAlignment="Left">
 
                 <!-- Header -->
                 <Grid ColumnSpacing="16">
@@ -135,18 +135,20 @@
                         <DataTemplate x:DataType="local:ProjectListItem">
                             <Border Width="320" Margin="0,0,24,24" CornerRadius="{StaticResource CpRadiusPanel}" Background="{ThemeResource CpPaper}" BorderBrush="{ThemeResource CpLine}" BorderThickness="1">
                                 <StackPanel>
-                                    <Grid Height="160" Background="{ThemeResource CpPaper2}" CornerRadius="10,10,0,0">
-                                        <Image Source="{x:Bind Thumbnail}" Stretch="UniformToFill" />
-                                        <TextBlock Text="{x:Bind PreviewLabel}" FontSize="12" Foreground="{ThemeResource CpInkMuted}" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="{x:Bind PreviewLabelVisibility}" />
-                                        <Border CornerRadius="{StaticResource CpRadiusChip}" Background="{ThemeResource CpPaper}" BorderBrush="{ThemeResource CpLine}" BorderThickness="1" Padding="8,2" Margin="8" HorizontalAlignment="Left" VerticalAlignment="Top">
-                                            <TextBlock Text="{x:Bind ScaleLabel}" FontFamily="Consolas" FontSize="11" FontWeight="Medium" Foreground="{ThemeResource CpInk}" />
-                                        </Border>
-                                    </Grid>
+                                    <Border Height="160" Background="{ThemeResource CpPaper2}" CornerRadius="9,9,0,0">
+                                        <Grid>
+                                            <Image Source="{x:Bind Thumbnail}" Stretch="UniformToFill" />
+                                            <TextBlock Text="{x:Bind PreviewLabel}" FontSize="12" Foreground="{ThemeResource CpInkMuted}" HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" Margin="16,0" Visibility="{x:Bind PreviewLabelVisibility}" />
+                                            <Border CornerRadius="{StaticResource CpRadiusChip}" Background="{ThemeResource CpPaper}" BorderBrush="{ThemeResource CpLine}" BorderThickness="1" Padding="8,2" Margin="8" HorizontalAlignment="Left" VerticalAlignment="Top">
+                                                <TextBlock Text="{x:Bind ScaleLabel}" FontFamily="Consolas" FontSize="11" FontWeight="Medium" Foreground="{ThemeResource CpInk}" />
+                                            </Border>
+                                        </Grid>
+                                    </Border>
                                     <Rectangle Height="1" Fill="{ThemeResource CpLine}" />
                                     <StackPanel Padding="12" Spacing="2">
                                         <TextBlock Text="{x:Bind Name}" FontSize="15" FontWeight="SemiBold" Foreground="{ThemeResource CpInk}" TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Text="{x:Bind Summary}" FontFamily="Consolas" FontSize="11" Foreground="{ThemeResource CpInkMuted}" />
-                                        <TextBlock Text="{x:Bind Dates}" FontSize="11" Foreground="{ThemeResource CpInkMuted}" />
+                                        <TextBlock Text="{x:Bind Summary}" FontFamily="Consolas" FontSize="11" Foreground="{ThemeResource CpInkMuted}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{x:Bind Dates}" FontSize="11" Foreground="{ThemeResource CpInkMuted}" TextTrimming="CharacterEllipsis" />
                                     </StackPanel>
                                 </StackPanel>
                             </Border>
@@ -186,9 +188,6 @@
             </StackPanel>
             <Border HorizontalAlignment="Right" VerticalAlignment="Center" CornerRadius="16" Background="{ThemeResource CpPaper}" BorderBrush="{ThemeResource CpLine}" BorderThickness="1" Padding="4,2">
                 <StackPanel Orientation="Horizontal" Spacing="2">
-                    <Button Style="{StaticResource CpToolIconButton}" Click="BasemapTest_Click" ToolTipService.ToolTip="Test basemap tile (M0 spike)" AutomationProperties.Name="Download one Esri World Imagery tile">
-                        <FontIcon Glyph="&#xE774;" FontSize="14" />
-                    </Button>
                     <Button Style="{StaticResource CpToolIconButton}" Click="About_Click" ToolTipService.ToolTip="About OCCA · credits" AutomationProperties.Name="About OCCA">
                         <FontIcon Glyph="&#xE946;" FontSize="14" />
                     </Button>

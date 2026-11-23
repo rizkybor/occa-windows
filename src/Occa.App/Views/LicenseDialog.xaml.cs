@@ -20,9 +20,11 @@ public sealed partial class LicenseDialog : ContentDialog
     private readonly ProFeature? _feature;
     private bool _formatting;
 
-    public LicenseDialog(AppLicense license, ProFeature? feature)
+    public LicenseDialog(AppLicense license, ProFeature? feature, ElementTheme theme)
     {
         InitializeComponent();
+        // The theme is set before the plan tiles are built: their brushes are code-created and follow the dialog theme.
+        RequestedTheme = theme;
         _license = license;
         _feature = feature;
         _license.Changed += License_Changed;
@@ -54,9 +56,9 @@ public sealed partial class LicenseDialog : ContentDialog
             LicensePlan.Organization => ("CpSkyFill", "CpSandBorder", "CpSkyStrong"),
             _ => ("CpSandFill", "CpSandBorder", "CpSandStrong"),
         };
-        PlanBadge.Background = ThemeBrushes.Get(fill);
-        PlanBadge.BorderBrush = ThemeBrushes.Get(border);
-        PlanText.Foreground = ThemeBrushes.Get(strong);
+        PlanBadge.Background = ThemeBrushes.Get(fill, RequestedTheme);
+        PlanBadge.BorderBrush = ThemeBrushes.Get(border, RequestedTheme);
+        PlanText.Foreground = ThemeBrushes.Get(strong, RequestedTheme);
         PlanSubtitle.Text = engine.Source switch
         {
             LicenseSource.Developer => $"{AppInfo.Name} · Developer build",
@@ -69,7 +71,7 @@ public sealed partial class LicenseDialog : ContentDialog
         Stat2.Text = p is null ? $"Courses: up to {FreeLimits.Courses} per project"
             : p.ExpiresAt is { } end ? $"{(engine.DaysLeft is int d && d > 0 ? $"{d} days left · " : "")}ends {end.ToLocalTime().ToString("d MMM yyyy", CultureInfo.InvariantCulture)}"
             : p.UpdatesMajor is int major ? $"Lifetime · covers {AppInfo.Name} {major}.x" : "Lifetime · no end date";
-        Stat3.Text = p is null ? "No fieldwork, contours or live basemap" : $"Checked {p.IssuedAt.ToLocalTime().ToString("d MMM yyyy", CultureInfo.InvariantCulture)} · next refresh {p.RefreshAfter.ToLocalTime().ToString("d MMM", CultureInfo.InvariantCulture)}";
+        Stat3.Text = p is null ? "No contours, map import, raster or vector export" : $"Checked {p.IssuedAt.ToLocalTime().ToString("d MMM yyyy", CultureInfo.InvariantCulture)} · next refresh {p.RefreshAfter.ToLocalTime().ToString("d MMM", CultureInfo.InvariantCulture)}";
         Stat4.Text = p is null ? "" : LicenseKey.ReferenceOf(p.Key) ?? "";
         SeatActions.Visibility = engine.UsesKeys ? Visibility.Visible : Visibility.Collapsed;
         ReleaseButton.IsEnabled = p is not null && !engine.Busy;
@@ -87,7 +89,11 @@ public sealed partial class LicenseDialog : ContentDialog
             MessageBar.IsOpen = true;
         }
         foreach (var child in PlansPanel.Children.OfType<Border>())
-            if (child.Tag is LicensePlan tilePlan) child.BorderThickness = new Thickness(tilePlan == plan ? 2 : 1);
+            if (child.Tag is LicensePlan tilePlan)
+            {
+                child.BorderThickness = new Thickness(tilePlan == plan ? 2 : 1);
+                child.BorderBrush = ThemeBrushes.Get(tilePlan == plan ? "CpSageStrong" : "CpLine", RequestedTheme);
+            }
     }
 
     private void BuildPlans()
@@ -97,8 +103,8 @@ public sealed partial class LicenseDialog : ContentDialog
             var tile = new Border
             {
                 Tag = plan, CornerRadius = new CornerRadius(10), Padding = new Thickness(12),
-                Background = ThemeBrushes.Get("CpPaper2"),
-                BorderBrush = ThemeBrushes.Get("CpLine"), BorderThickness = new Thickness(1),
+                Background = ThemeBrushes.Get("CpPaper2", RequestedTheme),
+                BorderBrush = ThemeBrushes.Get("CpLine", RequestedTheme), BorderThickness = new Thickness(1),
                 Child = new StackPanel
                 {
                     Spacing = 2,
@@ -111,7 +117,7 @@ public sealed partial class LicenseDialog : ContentDialog
             };
             PlansPanel.Children.Add(tile);
         }
-        Tile(LicensePlan.Starter, "Free", $"{FreeLimits.Projects} projects at 1:4000 or 1:10000, up to {FreeLimits.Courses} courses; no fieldwork, contours, or live basemap");
+        Tile(LicensePlan.Starter, "Free", $"{FreeLimits.Projects} projects at {FreeLimits.ScalesLabel}, up to {FreeLimits.Courses} courses; PDF with the OCCA credit; no contours, map import, raster or vector export");
         Tile(LicensePlan.Trial, "Limited time", $"Every feature, to try {AppInfo.Name} out");
         Tile(LicensePlan.Professional, "Paid per period", "Every feature, for one mapper or course setter");
         Tile(LicensePlan.Lifetime, "One-time payment", "Every feature, no end date (covers one major version)");
@@ -127,7 +133,7 @@ public sealed partial class LicenseDialog : ContentDialog
                 Orientation = Orientation.Horizontal, Spacing = 10,
                 Children =
                 {
-                    new FontIcon { Glyph = f.Glyph(), FontSize = 14, Foreground = ThemeBrushes.Get("CpSageStrong"), Width = 24 },
+                    new FontIcon { Glyph = f.Glyph(), FontSize = 14, Foreground = ThemeBrushes.Get("CpSageStrong", RequestedTheme), Width = 24 },
                     new TextBlock { Text = f.Title(), FontSize = 13, TextWrapping = TextWrapping.Wrap },
                 },
             });
