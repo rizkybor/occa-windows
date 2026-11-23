@@ -886,7 +886,7 @@ public sealed partial class MapView : UserControl
         try
         {
             var picker = new FileOpenPicker { SuggestedStartLocation = PickerLocationId.DocumentsLibrary };
-            foreach (var ext in new[] { ".tif", ".tiff", ".asc", ".geojson", ".json" }) picker.FileTypeFilter.Add(ext);
+            foreach (var filter in new[] { ".tif", ".tiff", ".asc", ".geojson", ".json" }) picker.FileTypeFilter.Add(filter);
             WinRT.Interop.InitializeWithWindow.Initialize(picker, WindowHandle);
             var file = await picker.PickSingleFileAsync();
             if (file is null) return;
