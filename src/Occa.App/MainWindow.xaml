@@ -42,7 +42,7 @@
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <TextBlock Text="OCCA" FontSize="24" FontWeight="SemiBold" CharacterSpacing="-25" Foreground="{ThemeResource CpInk}" VerticalAlignment="Bottom" />
                             <TextBlock Text="Orienteering Cakra CAD Application" FontSize="13" FontWeight="Medium" Foreground="{ThemeResource CpInkMuted}" VerticalAlignment="Bottom" Margin="0,0,0,4" />
-                            <Border x:Name="PlanChip" CornerRadius="{StaticResource CpRadiusChip}" Background="{ThemeResource CpSandFill}" BorderBrush="{ThemeResource CpSandBorder}" BorderThickness="1" Padding="8,2" VerticalAlignment="Bottom" Margin="0,0,0,4">
+                            <Border x:Name="PlanChip" ToolTipService.ToolTip="Starter (free) · the License screen arrives in milestone M5" CornerRadius="{StaticResource CpRadiusChip}" Background="{ThemeResource CpSandFill}" BorderBrush="{ThemeResource CpSandBorder}" BorderThickness="1" Padding="8,2" VerticalAlignment="Bottom" Margin="0,0,0,4">
                                 <TextBlock Text="Starter" FontSize="11" FontWeight="SemiBold" Foreground="{ThemeResource CpSandStrong}" />
                             </Border>
                         </StackPanel>
@@ -83,13 +83,24 @@
                 </Grid>
 
                 <!-- Project grid -->
-                <GridView x:Name="ProjectGrid" Visibility="Collapsed" SelectionMode="None" IsItemClickEnabled="True" AutomationProperties.Name="Project list">
+                <GridView x:Name="ProjectGrid" Visibility="Collapsed" SelectionMode="None" IsItemClickEnabled="True" ItemClick="ProjectGrid_ItemClick" AutomationProperties.Name="Project list">
                     <GridView.ItemTemplate>
                         <DataTemplate x:DataType="local:ProjectListItem">
-                            <Border Width="320" Margin="0,0,24,24" CornerRadius="{StaticResource CpRadiusPanel}" Background="{ThemeResource CpPaper}" BorderBrush="{ThemeResource CpLine}" BorderThickness="1" Padding="12">
-                                <StackPanel Spacing="4">
-                                    <TextBlock Text="{x:Bind Name}" FontSize="15" FontWeight="SemiBold" Foreground="{ThemeResource CpInk}" />
-                                    <TextBlock Text="{x:Bind Summary}" FontFamily="Consolas" FontSize="11" Foreground="{ThemeResource CpInkMuted}" />
+                            <Border Width="320" Margin="0,0,24,24" CornerRadius="{StaticResource CpRadiusPanel}" Background="{ThemeResource CpPaper}" BorderBrush="{ThemeResource CpLine}" BorderThickness="1">
+                                <StackPanel>
+                                    <Grid Height="160" Background="{ThemeResource CpPaper2}" CornerRadius="10,10,0,0">
+                                        <Image Source="{x:Bind Thumbnail}" Stretch="UniformToFill" />
+                                        <TextBlock Text="{x:Bind PreviewLabel}" FontSize="12" Foreground="{ThemeResource CpInkMuted}" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="{x:Bind PreviewLabelVisibility}" />
+                                        <Border CornerRadius="{StaticResource CpRadiusChip}" Background="{ThemeResource CpPaper}" BorderBrush="{ThemeResource CpLine}" BorderThickness="1" Padding="8,2" Margin="8" HorizontalAlignment="Left" VerticalAlignment="Top">
+                                            <TextBlock Text="{x:Bind ScaleLabel}" FontFamily="Consolas" FontSize="11" FontWeight="Medium" Foreground="{ThemeResource CpInk}" />
+                                        </Border>
+                                    </Grid>
+                                    <Rectangle Height="1" Fill="{ThemeResource CpLine}" />
+                                    <StackPanel Padding="12" Spacing="2">
+                                        <TextBlock Text="{x:Bind Name}" FontSize="15" FontWeight="SemiBold" Foreground="{ThemeResource CpInk}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{x:Bind Summary}" FontFamily="Consolas" FontSize="11" Foreground="{ThemeResource CpInkMuted}" />
+                                        <TextBlock Text="{x:Bind Dates}" FontSize="11" Foreground="{ThemeResource CpInkMuted}" />
+                                    </StackPanel>
                                 </StackPanel>
                             </Border>
                         </DataTemplate>
@@ -138,6 +149,9 @@
                 </StackPanel>
             </Border>
         </Grid>
+
+        <!-- The open project's map replaces the list (M1: read-only). -->
+        <views:MapView x:Name="Map" Grid.Row="1" Grid.RowSpan="2" Visibility="Collapsed" BackRequested="Map_BackRequested" />
 
         <!-- Splash on top of everything at launch (about 4 s), then a fade. -->
         <views:SplashView x:Name="Splash" Grid.RowSpan="3" Finished="Splash_Finished" />
