@@ -1,7 +1,8 @@
 # Builds and tests OCCA for Windows on a Windows runner and produces installable artifacts for x64 and ARM64:
 #   OCCA-MSIX-<platform>  .msix signed with a per-run self-signed test certificate (+ its .cer to trust on a test PC)
 #   OCCA-MSI-<platform>   .msi built with WiX from the unpackaged, self-contained publish
-# Secrets (optional): ESRI_API_KEY is written into appsettings.json of the packaged app and enables the live tile test.
+# Secrets (optional): OCCA_WINDOWS holds the Esri ArcGIS Location Platform API key; it is written into appsettings.json
+# of the packaged app and enables the live tile test.
 name: Build
 
 on:
@@ -28,7 +29,7 @@ jobs:
           dotnet-version: 8.0.x
       - name: Test Occa.Core
         env:
-          OCCA_ESRI_API_KEY: ${{ secrets.ESRI_API_KEY }}
+          OCCA_ESRI_API_KEY: ${{ secrets.OCCA_WINDOWS }}
         run: dotnet test tests/Occa.Core.Tests/Occa.Core.Tests.csproj -c Release --logger "trx;LogFileName=core.trx" --results-directory artifacts/test-results
       - uses: actions/upload-artifact@v4
         if: always()
@@ -71,7 +72,7 @@ jobs:
       - name: Stamp version and Esri key
         shell: pwsh
         env:
-          ESRI_API_KEY: ${{ secrets.ESRI_API_KEY }}
+          ESRI_API_KEY: ${{ secrets.OCCA_WINDOWS }}
           VERSION: ${{ needs.version.outputs.version }}
         run: ./build/Stamp.ps1 -Version $env:VERSION -EsriApiKey $env:ESRI_API_KEY
 
@@ -150,7 +151,7 @@ jobs:
       - name: Stamp version and Esri key
         shell: pwsh
         env:
-          ESRI_API_KEY: ${{ secrets.ESRI_API_KEY }}
+          ESRI_API_KEY: ${{ secrets.OCCA_WINDOWS }}
           VERSION: ${{ needs.version.outputs.version }}
         run: ./build/Stamp.ps1 -Version $env:VERSION -EsriApiKey $env:ESRI_API_KEY
 
