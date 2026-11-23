@@ -35,8 +35,14 @@ public sealed class MapRenderer
         _geometryCache.Clear();
     }
 
-    /// <summary>Draws the scene. The session's transform must be identity on entry; it is restored on exit.</summary>
-    public void Draw(CanvasDrawingSession ds, MapScene scene, MapTransform view, SheetSpec sheet, double minLinePx = 0.5)
+    /// <summary>
+    /// Draws the scene. The session's transform must be identity on entry; it is restored on exit.
+    /// <paramref name="drawBelow"/> is called once (with the identity transform) just before the first item whose colour
+    /// priority is below <paramref name="belowPriority"/>: exports slot the lower purple course overprint into the colour
+    /// order there (IOF Rev 4 §4), the same place as the PDF exporter.
+    /// </summary>
+    public void Draw(CanvasDrawingSession ds, MapScene scene, MapTransform view, SheetSpec sheet, double minLinePx = 0.5,
+                     int belowPriority = int.MinValue, Action? drawBelow = null)
     {
         if (!ReferenceEquals(_device, ds.Device)) { InvalidateCache(); _device = ds.Device; }
         var visible = view.Visible;
@@ -45,9 +51,17 @@ public sealed class MapRenderer
         var saved = ds.Transform;
         ds.Transform = view.ToPixels * saved;
         ds.Antialiasing = CanvasAntialiasing.Antialiased;
+        bool belowDone = drawBelow is null;
 
         foreach (var item in scene.Items)
         {
+            if (!belowDone && item.Priority < belowPriority)
+            {
+                belowDone = true;
+                ds.Transform = saved;
+                drawBelow!();
+                ds.Transform = view.ToPixels * saved;
+            }
             switch (item)
             {
                 case MapScene.Outline o when o.Bounds.Intersects(visible):
@@ -57,6 +71,12 @@ public sealed class MapRenderer
                     DrawPoint(ds, p, minWidthM);
                     break;
             }
+        }
+        if (!belowDone)
+        {
+            ds.Transform = saved;
+            drawBelow!();
+            ds.Transform = view.ToPixels * saved;
         }
         foreach (var s in scene.Strokes)
         {

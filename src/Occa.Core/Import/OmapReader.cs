@@ -17,7 +17,7 @@ public sealed class OmapReadException : Exception
 /// name, colour, width and dashes. Position from the OOM georeferencing (lat/lon reference, scale, grivation).
 /// Points and text are skipped (reported); area holes are kept. Port of OmapReader.swift on XmlReader.
 /// </summary>
-public static class OmapReader
+public static partial class OmapReader
 {
     private const int CurveStart = 1, HolePoint = 16;
 

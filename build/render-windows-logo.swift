@@ -1,4 +1,4 @@
-// Renders the Windows app assets from the shared OCCA logo (build/logo/occa-base-1024.png, produced by the Mac repo's
+// Renders the Windows app assets (tiles, splash, in-app AppLogo.png, .ico sizes) from the shared OCCA logo (build/logo/occa-base-1024.png, produced by the Mac repo's
 // Tools/render-logo.swift with a transparent background) and adds a small Windows mark in the orange corner.
 //
 // Usage: swift build/render-windows-logo.swift <base.png> <assets dir>
@@ -62,6 +62,8 @@ for (name, size) in [("SplashScreen.scale-200.png", 600), ("SplashScreen.png", 3
     ctx.draw(logoImage, in: CGRect(x: (w - size) / 2, y: 0, width: size, height: size))
     write(ctx.makeImage()!, name)
 }
+// In-app logo (project list, about, animated splash): 512 px with air around the flag like the Mac/iPad asset, same mark.
+write(render(size: 512, share: 0.75), "AppLogo.png")
 // Sizes for the .ico (assembled by build/make-ico.py).
 for size in [16, 24, 32, 48, 64, 128, 256] { write(render(size: size), "ico-\(size).png") }
 print("done")

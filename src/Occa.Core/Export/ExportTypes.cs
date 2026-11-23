@@ -1,4 +1,6 @@
 using System.Globalization;
+using Occa.Core.Contour;
+using Occa.Core.Courses;
 using Occa.Core.Geometry;
 using Occa.Core.Project;
 using Occa.Core.Sheet;
@@ -215,6 +217,13 @@ public sealed class RasterExportRequest
     public NorthGrid? Grid { get; init; }
     public bool IncludePrj { get; init; } = true;
     public ExportBackground? Background { get; init; }
+    /// <summary>Course overprint (purple), placed in the colour order like the PDF: lower purple below black, blue and brown 100 %.</summary>
+    public CourseOverprint? Overprint { get; init; }
+    /// <summary>Colour priority at which the lower purple course overprint is painted.</summary>
+    public int OverprintLowerPriority { get; init; } = ColorHierarchy.LowerPurplePriority();
+    /// <summary>Generated or imported contour lines drawn under the map objects (null = none).</summary>
+    public IReadOnlyList<ContourLine>? Contours { get; init; }
+    public ContourSettings? ContourStyle { get; init; }
 
     public double PixelSize => Sheet.PixelSizeM(Dpi);
     public (int Width, int Height) PixelDimensions => Sheet.PixelDimensions(Dpi);

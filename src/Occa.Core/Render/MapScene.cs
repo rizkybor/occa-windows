@@ -14,7 +14,11 @@ public sealed class MapScene
     /// <summary>One ring of an outline: the cubic segments in order; closed when the outline closes.</summary>
     public sealed record Ring(IReadOnlyList<CubicSegment> Segments, bool Closed);
 
-    public abstract record Item;
+    public abstract record Item
+    {
+        /// <summary>Colour priority of this item in the IOF colour order (smaller = drawn later / on top); see <c>ColorHierarchy.PaintOrder</c>.</summary>
+        public int Priority { get; init; }
+    }
 
     /// <summary>Fill (even-odd over all rings) and/or stroke of a line or area. Widths in metres on the ground.</summary>
     public sealed record Outline(
@@ -70,7 +74,7 @@ public sealed class MapScene
         {
             var parts = built[paint.Index];
             if (parts is null) continue;
-            items.Add(parts(paint.Part));
+            items.Add(parts(paint.Part) with { Priority = paint.Priority });
         }
         var sketch = strokes.Where(s => s.Points.Count > 0)
             .Select(s => new SketchStroke(s, s.Bounds!.Value.InsetBy(-sheet.GroundMeters(s.WidthMM)), s.ColorHex, sheet.GroundMeters(s.WidthMM))).ToList();

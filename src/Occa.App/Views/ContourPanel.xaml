@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="Occa.App.Views.ContourPanel"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Width="360"
+    Background="{ThemeResource CpPaper2}"
+    BorderBrush="{ThemeResource CpLine}"
+    BorderThickness="1,0,0,0">
+
+    <UserControl.Resources>
+        <Style x:Key="SectionTitle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{ThemeResource CpInkMuted}" />
+            <Setter Property="Margin" Value="0,10,0,2" />
+        </Style>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Grid Padding="12,10" BorderBrush="{ThemeResource CpLine}" BorderThickness="0,0,0,1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="Contours" FontSize="15" FontWeight="SemiBold" Foreground="{ThemeResource CpInk}" VerticalAlignment="Center" />
+            <Button Grid.Column="1" Click="Close_Click" Background="Transparent" BorderThickness="0" Padding="6" AutomationProperties.Name="Close contours panel">
+                <FontIcon Glyph="&#xE711;" FontSize="12" />
+            </Button>
+        </Grid>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel Padding="12,4,12,16" Spacing="6">
+                <TextBlock Text="ELEVATION DATA" Style="{StaticResource SectionTitle}" />
+                <TextBlock x:Name="DemText" Text="No elevation data yet." FontSize="12" Foreground="{ThemeResource CpInk}" TextWrapping="Wrap" />
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Button Content="Open DEM…" Click="OpenDem_Click" ToolTipService.ToolTip="GeoTIFF (.tif) or ESRI ASCII grid (.asc) elevation model" />
+                    <Button x:Name="DownloadButton" Content="Download terrain" Click="Download_Click" ToolTipService.ToolTip="Terrain Tiles on AWS (Mapzen Terrarium), about 10–30 m resolution; needs the map area" />
+                    <Button x:Name="RemoveDemButton" Click="RemoveDem_Click" ToolTipService.ToolTip="Remove elevation data from this project" Padding="8,6">
+                        <FontIcon Glyph="&#xE74D;" FontSize="12" />
+                    </Button>
+                </StackPanel>
+                <ProgressBar x:Name="Progress" IsIndeterminate="True" Visibility="Collapsed" />
+                <TextBlock x:Name="BusyText" FontSize="12" Foreground="{ThemeResource CpInkMuted}" Visibility="Collapsed" />
+
+                <TextBlock Text="CONTOURS" Style="{StaticResource SectionTitle}" />
+                <ToggleSwitch x:Name="EnabledSwitch" Header="Show contours" OnContent="On" OffContent="Off" Toggled="Settings_Changed" />
+                <Grid ColumnSpacing="8" RowSpacing="6">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <NumberBox x:Name="IntervalBox" Header="Interval (m)" Minimum="0.5" Maximum="50" SmallChange="0.5" SpinButtonPlacementMode="Compact" ValueChanged="Settings_Changed" />
+                    <NumberBox Grid.Column="1" x:Name="IndexEveryBox" Header="Index every" Minimum="2" Maximum="10" SpinButtonPlacementMode="Compact" ValueChanged="Settings_Changed" />
+                    <NumberBox Grid.Row="1" x:Name="BaseOffsetBox" Header="Base elevation (m)" Minimum="-100" Maximum="9000" SpinButtonPlacementMode="Compact" ValueChanged="Settings_Changed" />
+                    <NumberBox Grid.Row="1" Grid.Column="1" x:Name="MinLengthBox" Header="Min. length (mm)" Minimum="0" Maximum="50" SmallChange="0.5" SpinButtonPlacementMode="Compact" ValueChanged="Settings_Changed" />
+                    <Slider Grid.Row="2" x:Name="SmoothingSlider" Header="Smoothing" Minimum="0" Maximum="4" StepFrequency="1" TickFrequency="1" ValueChanged="Settings_Changed" />
+                    <Slider Grid.Row="2" Grid.Column="1" x:Name="OpacitySlider" Header="Opacity" Minimum="5" Maximum="100" ValueChanged="Settings_Changed" />
+                </Grid>
+                <CheckBox x:Name="FormLinesCheck" Content="Form lines (half interval, dashed)" Click="Settings_Changed" />
+                <CheckBox x:Name="ExportCheck" Content="Include in PDF and raster exports" Click="Settings_Changed" />
+                <TextBlock x:Name="HintText" FontSize="11" Foreground="{ThemeResource CpInkMuted}" TextWrapping="Wrap" />
+                <TextBlock x:Name="ResultText" FontSize="12" Foreground="{ThemeResource CpInk}" TextWrapping="Wrap" />
+                <TextBlock x:Name="WarningText" FontSize="12" Foreground="{ThemeResource CpRoseStrong}" TextWrapping="Wrap" />
+
+                <TextBlock Text="TOOLS" Style="{StaticResource SectionTitle}" />
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Button x:Name="ExportButton" Content="Export contours…" Click="Export_Click" ToolTipService.ToolTip="Shapefile (UTM), KML or KMZ (WGS84)" />
+                    <Button x:Name="ConvertButton" Content="To vector objects" Click="Convert_Click" ToolTipService.ToolTip="Adds the contours as ISOM 101/102/103 line objects you can edit" />
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

@@ -350,7 +350,7 @@ public static class OcadReader
         return map;
     }
 
-    private static void Walk(int first, Bytes r, int entrySize, Action<int> body)
+    internal static void Walk(int first, Bytes r, int entrySize, Action<int> body)
     {
         int pos = first;
         var seen = new HashSet<int>();
